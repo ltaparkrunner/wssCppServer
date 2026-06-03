@@ -1,0 +1,75 @@
+syntax = "proto3";
+
+message ServerEnvelope {
+    enum Type {
+        UNKNOWN = 0;
+        SERVER_MESSAGE = 1;
+        CLIENT_UPLOAD = 2;
+        CLIENT_LIST_REQ = 3;
+        CLIENT_DELETE_REQ = 4;
+        CLIENT_IDS_REQ = 5;
+        CLIENT_PATH_INF_REQ = 6;
+    }
+
+    Type type = 1;
+
+    // Структуры объектов файлов и папок
+    message FileInfo {
+        string fileName = 1;
+        string mongoId = 2;
+        string url = 3;
+        int64 size = 4;
+    }
+
+    message FolderInfo {
+        string folderName = 1;
+        string url = 2;
+    }
+
+    message BucketInfo {
+        string bucketName = 1;
+        string url = 2;
+    }
+
+    // Ответы сервера (Payloads)
+    message BucketsPayload {
+        repeated BucketInfo bucketInf = 1;
+    }
+
+    message ServerResponse {
+        string content = 1;
+        string status = 2;
+    }
+
+    message ListResponsePayload {
+        repeated FileInfo files = 1;
+        repeated FolderInfo folders = 2;
+    }
+
+    message FilesIdsPayload {
+        repeated FileInfo files = 1;
+    }
+
+    message PathInfPayload {
+        string netPath = 1;
+        string netStorePath = 2;
+        string result = 3;
+    }
+
+    // Поля верхнего уровня конверта
+    BucketsPayload buckets = 2;
+    ServerResponse serverResp = 3;
+    ListResponsePayload listResponse = 9;
+    FilesIdsPayload filesIdsResponse = 10;
+    PathInfPayload pathInfResponse = 11;
+
+    // Поля клиентских запросов
+    string fileName = 4;
+    string folder = 5;
+    string info = 6;
+    bytes data = 7;
+    string folderName = 8;
+    repeated string mongoIds = 12;
+    string mongoId = 13;
+    string netPath = 14;
+}

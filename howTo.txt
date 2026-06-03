@@ -1,0 +1,9 @@
+├── CMakeLists.txt         # Конфигурация сборки CMake
+├── image.proto            # Ваша protobuf схема
+├── src/
+│   ├── main.cpp           # Точка входа, пул потоков, запуск io_context
+│   ├── config.hpp         # Чтение .env / переменных окружения Docker-compose
+│   ├── database.hpp       # Обертка над MongoDB (mongocxx)
+│   ├── s3_storage.hpp     # Обертка над MinIO/S3 (aws-sdk-cpp)
+│   ├── http_session.hpp   # Обработка REST (/register, /login) через Boost.Beast
+│   └── wss_session.hpp    # Обработка Protobuf-картинок по WebSockets

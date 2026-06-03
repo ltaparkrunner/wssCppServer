@@ -1,0 +1,40 @@
+#```yaml
+services:
+  app:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8081" # REST API Авторизации
+      - "8080:8080" # Защищенный WebSocket (WSS)
+    environment:
+      - MONGO_URL=mongodb://mongo:27017/images_db
+      - S3_ENDPOINT=http://minio:9000/
+      - S3_ACCESS_KEY=admin
+      - S3_SECRET_KEY=password123
+      - S3_BUCKET=photos
+      - JWT_SECRET=secret_key
+    depends_on:
+      - mongo
+      - minio
+
+  mongo:
+    image: mongo:latest
+    volumes:
+      - mongo_data:/data/db
+      
+  minio:
+    image: minio/minio:latest
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: password123
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+
+volumes:
+  mongo_data:
+  minio_data:
