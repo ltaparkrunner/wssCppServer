@@ -1,75 +1,182 @@
 syntax = "proto3";
 
+// Сообщение Picture для передачи бинарных данных изображения
+message Picture {
+  string fileName = 1;      // Имя файла в Minio
+  string folderId = 2;      // ID документа в MongoDB
+  string contentType = 3;
+  bytes data = 4;
+  int64 timestamp = 5;
+}
+
+// Запрос от клиента на добавление файла
+message AddFileRequest {
+  string fileName = 1;      // Имя файла
+  string folder = 2;        // Целевая папка
+  string info = 3;          // Дополнительная информация
+  bytes data = 4;           // Сырые байты картинки
+}
+
+// Запрос от клиента на создание папки
+message AddFolderRequest {
+  string folderName = 1;
+  string folder = 2;
+  string info = 3;
+}
+
+// Стандартный текстовый ответ сервера на базовые операции
+message ServerResponse {
+  string content = 1;
+  string status = 2; 
+}
+
+// Запрос списка файлов по массиву ID из MongoDB
+message FilesIds {
+  repeated string mongoIds = 1;
+}
+
+// Запрос содержимого папки (файлы + вложенные папки)
+message FilesFoldersListRequest {
+  string folderName = 1;
+}
+
+// Запрос только файлов из папки
+message FilesOnlyListRequest {
+  string folderName = 1;
+}
+
+// Метаданные одного файла для отправки клиенту
+message FileInfo {
+  string fileName = 1;
+  string mongoId = 2;
+  string url = 3;
+  int64 size = 4;
+}
+
+// Запрос информации о сетевом пути
+message PathInfoRequest {
+  string netPath = 1;
+}
+
+// Ответ сервера с информацией о пути (файл, папка или не существует)
+message PathInfoResponse {
+  string netPath = 1;
+  string netStorePath = 2;
+  string result = 3;
+}
+
+// Метаданные папки для отправки клиенту
+message FolderInfo {
+  string folderName = 1;
+  string url = 2;
+}
+
+// Ответ сервера со списками файлов и папок
+message FilesFoldersListResponse {
+  repeated FileInfo files = 1;
+  repeated FolderInfo folders = 2;
+}
+
+// Ответ сервера только со списком файлов
+message FilesOnlyListResponse {
+  repeated FileInfo files = 1;
+}
+
+// Запрос бакетов пользователя
+message BucketsRequest {
+  string userLogin = 1;
+}
+
+// Информация о бакете
+message BucketInfo {
+  string bucketName = 1;
+  string url = 2;
+}
+
+// Ответ сервера со списком бакетов
+message BucketsList {
+  repeated BucketInfo bucketInf = 1;
+}
+
+// Запрос на удаление файла
+message DeleteFileRequest {
+  string fileName = 1;
+  string mongoId = 2;
+}
+
+// Запрос на удаление папки
+message DeleteFolderRequest {
+  string folderName = 1;
+  string fileId = 2;
+}
+
+// Запрос на удаление бакета
+message DeleteBucketRequest {
+  string bucketName = 1;
+}
+
+// Запросы регистрации и авторизации
+message RegisterRequest {
+  string userLogin = 1;
+  string password = 2;
+  string full_name = 3;
+}
+
+message AuthRequest {
+  string userLogin = 1;
+  string password = 2;
+}
+
+message AuthResponse {
+  string token = 1;
+  string error = 2;
+}
+
+// === КЛЮЧЕВОЙ КОНВЕРТ: КЛИЕНТ -> СЕРВЕР ===
+message ClientEnvelope {
+  enum Type {
+    UNKNOWN = 0;
+    AUTH_REQUEST = 1;
+    CLIENT_MESSAGE = 2;
+  }
+  Type type = 1;
+  string token = 14;
+  
+  oneof content {
+    AddFileRequest addFile = 2;
+    AddFolderRequest addFolder = 3;
+    FilesFoldersListRequest listRequest = 4;
+    FilesOnlyListRequest filesListRequest = 5;
+    FilesIds filesIdsRequest = 6;
+    PathInfoRequest pathInfRequest = 7;
+    BucketsRequest reqUserBuckets = 8;
+    DeleteFileRequest deleteFile = 9;
+    DeleteFolderRequest deleteFolder = 10;
+    DeleteBucketRequest deleteBucket = 11;
+    RegisterRequest regRequest = 12;
+    AuthRequest authRequest = 13;
+  }
+}
+
+// === КЛЮЧЕВОЙ КОНВЕРТ: СЕРВЕР -> КЛИЕНТ ===
 message ServerEnvelope {
-    enum Type {
-        UNKNOWN = 0;
-        SERVER_MESSAGE = 1;
-        CLIENT_UPLOAD = 2;
-        CLIENT_LIST_REQ = 3;
-        CLIENT_DELETE_REQ = 4;
-        CLIENT_IDS_REQ = 5;
-        CLIENT_PATH_INF_REQ = 6;
-    }
-
-    Type type = 1;
-
-    // Структуры объектов файлов и папок
-    message FileInfo {
-        string fileName = 1;
-        string mongoId = 2;
-        string url = 3;
-        int64 size = 4;
-    }
-
-    message FolderInfo {
-        string folderName = 1;
-        string url = 2;
-    }
-
-    message BucketInfo {
-        string bucketName = 1;
-        string url = 2;
-    }
-
-    // Ответы сервера (Payloads)
-    message BucketsPayload {
-        repeated BucketInfo bucketInf = 1;
-    }
-
-    message ServerResponse {
-        string content = 1;
-        string status = 2;
-    }
-
-    message ListResponsePayload {
-        repeated FileInfo files = 1;
-        repeated FolderInfo folders = 2;
-    }
-
-    message FilesIdsPayload {
-        repeated FileInfo files = 1;
-    }
-
-    message PathInfPayload {
-        string netPath = 1;
-        string netStorePath = 2;
-        string result = 3;
-    }
-
-    // Поля верхнего уровня конверта
-    BucketsPayload buckets = 2;
-    ServerResponse serverResp = 3;
-    ListResponsePayload listResponse = 9;
-    FilesIdsPayload filesIdsResponse = 10;
-    PathInfPayload pathInfResponse = 11;
-
-    // Поля клиентских запросов
-    string fileName = 4;
-    string folder = 5;
-    string info = 6;
-    bytes data = 7;
-    string folderName = 8;
-    repeated string mongoIds = 12;
-    string mongoId = 13;
-    string netPath = 14;
+  enum Type {
+    UNKNOWN = 0;
+    AUTH_RESPONSE = 1;
+    SERVER_MESSAGE = 2;
+  }
+  Type type = 1;
+  
+  oneof content {
+    ServerResponse serverResp = 2;
+    FileInfo fileInfo = 3;
+    FolderInfo folderInfo = 4;
+    FilesFoldersListResponse listResponse = 5;
+    FilesOnlyListResponse filesListResponse = 6;
+    BucketInfo bucketInfo = 7;
+    BucketsList buckets = 8;
+    AuthResponse authResponse = 9;
+    FilesOnlyListResponse filesIdsResponse = 10;
+    PathInfoResponse pathInfResponse = 11;
+  }
 }

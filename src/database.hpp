@@ -1,30 +1,23 @@
-// src/config.hpp
 #pragma once
-#include <cstdlib>
-#include <string>
+#include <mongocxx/client.hpp>
+#include <mongocxx/instance.hpp>
+#include <mongocxx/uri.hpp>
+#include <memory>
 
-struct Config {
-    std::string mongo_url;
-    std::string s3_endpoint;
-    std::string s3_access_key;
-    std::string s3_secret_key;
-    std::string s3_bucket;
-    std::string jwt_secret;
+class Database {
+    std::unique_ptr<mongocxx::client> client_;
+    std::string db_name_;
 
-    static Config load() {
-        return Config{
-            get_env("MONGO_URL", "mongodb://localhost:27017/images_db"),
-            get_env("S3_ENDPOINT", "http://localhost:9000/"),
-            get_env("S3_ACCESS_KEY", "admin"),
-            get_env("S3_SECRET_KEY", "password123"),
-            get_env("S3_BUCKET", "images"),
-            get_env("JWT_SECRET", "secret_key")
-        };
+public:
+    Database(const std::string& uri_str) {
+        mongocxx::uri uri{uri_str};
+        // ИСПРАВЛЕНО: добавлен символ подчеркивания, соответствующий объявлению члена класса
+        client_ = std::make_unique<mongocxx::client>(uri);
+        db_name_ = uri.database();
+        if(db_name_.empty()) db_name_ = "images_db";
     }
 
-private:
-    static std::string get_env(const char* key, const std::string& default_val) {
-        const char* val = std::getenv(key);
-        return val ? std::string(val) : default_val;
+    mongocxx::database get_db() {
+        return (*client_)[db_name_];
     }
 };

@@ -21,6 +21,12 @@ protobuf_generate(
     LANGUAGE cpp
 )
 
+# Добавляем явные пути поиска заголовочных файлов для таргета picture_server
+target_include_directories(picture_server PRIVATE 
+    ${CMAKE_CURRENT_BINARY_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
 target_include_directories(picture_server PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
 target_link_libraries(picture_server PRIVATE
@@ -36,4 +42,4 @@ target_link_libraries(picture_server PRIVATE
     aws-cpp-sdk-core
 )
 
-install(TARGETS picture_server DESTINATION .)
+# install(TARGETS picture_server DESTINATION .)
