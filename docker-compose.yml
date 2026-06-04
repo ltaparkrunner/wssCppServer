@@ -6,7 +6,7 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8081:8081" # REST API Авторизации
-      - "8080:8080" # Защищенный WebSocket (WSS)
+      - "8082:8080" # Защищенный WebSocket (WSS)
     environment:
       - MONGO_URL=mongodb://mongo:27017/images_db
       - S3_ENDPOINT=http://minio:9000/

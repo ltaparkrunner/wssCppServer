@@ -16,8 +16,7 @@
 #include <bsoncxx/builder/stream/helpers.hpp>
 #include <bsoncxx/json.hpp>
 #include <bsoncxx/oid.hpp>
-
-#include <mongocxx/instance.hpp> 
+#include <mongocxx/instance.hpp>
 
 #include "config.hpp"
 #include "database.hpp"
@@ -35,31 +34,37 @@ using json = nlohmann::json;
 
 // --- СЛОЙ 1: WEB SOCKET SECURE SESSION (Порт 8080) ---
 class WssSession : public std::enable_shared_from_this<WssSession> {
+    // Настраиваем тип WebSocket-стрима на точное совпадение с типом из HTTP-сессии
     websocket::stream<beast::ssl_stream<tcp::socket>> ws_;
     beast::flat_buffer buffer_;
     Database& db_;
     Aws::S3::S3Client& s3_client_;
     Config& cfg_;
     std::string user_id_;
+    http::request<http::string_body> upgrade_req_;
 
 public:
-    // ИСПРАВЛЕННЫЙ КОНСТРУКТОР: принимает готовый SSL-стрим
+    // Конструктор принимает УЖЕ ГОТОВЫЙ, полностью рабочий SSL-стрим,
+    // в котором Qt-клиент уже успешно прошел шифрование!
     WssSession(beast::ssl_stream<tcp::socket> ssl_stream, Database& db, Aws::S3::S3Client& s3, Config& cfg, std::string uid)
         : ws_(std::move(ssl_stream)), db_(db), s3_client_(s3), cfg_(cfg), user_id_(uid) {}
 
     void start(http::request<http::string_body> req) {
-        ws_.async_accept(req, beast::bind_front_handler(&WssSession::on_accept, shared_from_this()));
+        upgrade_req_ = std::move(req);
+        
+        // Отключаем таймауты Beast на время хэндшейка сокетов
+        //  beast::get_lowest_layer(ws_).expires_never();
+        
+        // Запускаем асинхронный WebSocket Handshake прямо поверх живого SSL
+        ws_.async_accept(upgrade_req_, beast::bind_front_handler(&WssSession::on_accept, shared_from_this()));
     }
-    // WssSession(tcp::socket socket, ssl::context& ctx, Database& db, Aws::S3::S3Client& s3, Config& cfg, std::string uid)
-    //     : ws_(std::move(socket), ctx), db_(db), s3_client_(s3), cfg_(cfg), user_id_(uid) {}
-
-    // void start(http::request<http::string_body> req) {
-    //     ws_.async_accept(req, beast::bind_front_handler(&WssSession::on_accept, shared_from_this()));
-    // }
 
 private:
     void on_accept(beast::error_code ec) {
-        if (ec) return;
+        if (ec) {
+            std::cerr << "WSS Accept Error: " << ec.message() << std::endl;
+            return;
+        }
         do_read();
     }
 
@@ -215,44 +220,17 @@ private:
         http::async_read(stream_, buffer_, req_, beast::bind_front_handler(&HttpServerSession::on_read, shared_from_this()));
     }
 
-    // void on_read(beast::error_code ec, std::size_t) {
-    //     if (ec == http::error::end_of_stream) return;
-    //     if (ec) return;
-
-    //     if (!is_auth_server_ && websocket::is_upgrade(req_)) {
-    //         std::string auth_header = beast::to_string(req_[http::field::authorization]);
-    //         if (auth_header.empty() || auth_header.rfind("Bearer ", 0) != 0) {
-    //             send_http_string_response(http::status::unauthorized, "Unauthorized");
-    //             return;
-    //         }
-            
-    //         std::string token = auth_header.substr(7);
-    //         try {
-    //             auto decoded = jwt::decode<jwt::traits::nlohmann_json>(token);
-    //             std::string user_id = decoded.get_payload_claim("id").as_string();
-
-    //             auto wss = std::make_shared<WssSession>(std::move(stream_.next_layer()), stream_.native_handle(), db_, s3_client_, cfg_, user_id);
-    //             wss->start(std::move(req_));
-    //             return;
-    //         } catch (...) {
-    //             send_http_string_response(http::status::unauthorized, "Unauthorized");
-    //             return;
-    //         }
-    //     }
-
-    //     if (is_auth_server_) {
-    //         handle_rest_api();
-    //     } else {
-    //         send_json_response(http::status::not_found, {{"error", "Not Found"}});
-    //     }
-    // }
-
     void on_read(beast::error_code ec, std::size_t) {
-        if (ec == http::error::end_of_stream) return;
-        if (ec) return;
-
+        std::cout << "Received HTTP request: " << req_.method_string() << " " << req_.target() << std::endl;
+        if (ec == http::error::end_of_stream) {
+            std::cerr << "HTTP Connection closed by client." << std::endl;
+            return;
+        }
+        if (ec){ 
+            std::cerr << "HTTP Read Error: " << ec.message() << std::endl;
+            return;
+        }
         if (!is_auth_server_ && websocket::is_upgrade(req_)) {
-            // ИСПРАВЛЕНО: Преобразуем заголовок в строку через стандартный конструктор std::string
             std::string auth_header = std::string(req_[http::field::authorization]);
             if (auth_header.empty() || auth_header.rfind("Bearer ", 0) != 0) {
                 send_http_string_response(http::status::unauthorized, "Unauthorized");
@@ -264,9 +242,13 @@ private:
                 auto decoded = jwt::decode<jwt::traits::nlohmann_json>(token);
                 std::string user_id = decoded.get_payload_claim("id").as_string();
 
-                // ИСПРАВЛЕНО: Передаем весь SSL-стрим целиком в WssSession, 
-                // полностью сохраняя TLS-рукопожатие и сессию OpenSSL
-                auto wss = std::make_shared<WssSession>(std::move(stream_), db_, s3_client_, cfg_, user_id);
+                // ЖЕЛЕЗОБЕТОННЫЙ ПЕРЕНОС: Передаем весь SSL-стрим (stream_) целиком 
+                // через std::move. Линкер и компилятор увидят идеальное совпадение типов!
+                auto wss = std::make_shared<WssSession>(
+                    std::move(stream_), 
+                    db_, s3_client_, cfg_, user_id
+                );
+                
                 wss->start(std::move(req_));
                 return;
             } catch (...) {
@@ -284,7 +266,9 @@ private:
 
 
     void handle_rest_api() {
+        std::cout << "Received unknown request: " << req_.body() << "req_.target()" << req_.target() << std::endl;
         if (req_.method() == http::verb::post && req_.target() == "/auth/register") {
+            std::cout << "Received registration request: " << req_.body() << std::endl;
             try {
                 auto body = json::parse(req_.body());
                 std::string username = body["username"];
