@@ -42,4 +42,4 @@ target_link_libraries(picture_server PRIVATE
     aws-cpp-sdk-core
 )
 
-# install(TARGETS picture_server DESTINATION .)
+install(TARGETS picture_server DESTINATION .)

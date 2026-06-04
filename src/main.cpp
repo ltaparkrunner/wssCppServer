@@ -17,6 +17,8 @@
 #include <bsoncxx/json.hpp>
 #include <bsoncxx/oid.hpp>
 
+#include <mongocxx/instance.hpp> 
+
 #include "config.hpp"
 #include "database.hpp"
 #include "auth_utils.hpp"
@@ -361,6 +363,7 @@ private:
 };
 
 int main() {
+    mongocxx::instance instance{}; 
     auto cfg = Config::load();
     Database db(cfg.mongo_url);
 

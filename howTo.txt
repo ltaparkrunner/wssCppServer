@@ -7,3 +7,21 @@
 │   ├── s3_storage.hpp     # Обертка над MinIO/S3 (aws-sdk-cpp)
 │   ├── http_session.hpp   # Обработка REST (/register, /login) через Boost.Beast
 │   └── wss_session.hpp    # Обработка Protobuf-картинок по WebSockets
+
+
+
+You are about to be asked to enter information that will be incorporated
+into your certificate request.
+What you are about to enter is what is called a Distinguished Name or a DN.
+There are quite a few fields but you can leave some blank
+For some fields there will be a default value,
+If you enter '.', the field will be left blank.
+-----
+Country Name (2 letter code) [AU]:AM
+State or Province Name (full name) [Some-State]:Yerevan
+Locality Name (eg, city) []:Yerevan
+Organization Name (eg, company) [Internet Widgits Pty Ltd]:Alex&Co
+Organizational Unit Name (eg, section) []:
+Common Name (e.g. server FQDN or YOUR name) []:
+Email Address []:alex@forever.com
+

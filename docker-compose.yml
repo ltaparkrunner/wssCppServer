@@ -1,6 +1,6 @@
 #```yaml
 services:
-  app:
+  wssserver:
     build: 
       context: .
       dockerfile: Dockerfile
