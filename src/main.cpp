@@ -25,7 +25,7 @@
 #include "image.pb.h"
 #include "auxil.hpp"
 #include "wssSession.hpp"
-#include "httpHandlers.hpp"
+#include "httpServerSession.hpp"
 
 namespace asio = boost::asio;
 namespace ssl = boost::asio::ssl;

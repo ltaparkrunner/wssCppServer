@@ -25,7 +25,7 @@
 #include "aux_handler.hpp"
 #include "image.pb.h"
 #include "wssSession.hpp"
-#include "httpHandlers.hpp"
+//  #include "httpHandlers.hpp"
 
 
 namespace asio = boost::asio;
@@ -37,7 +37,6 @@ using tcp = boost::asio::ip::tcp;
 using json = nlohmann::json;
 
 class HttpServerSession : public std::enable_shared_from_this<HttpServerSession> {
-    // ФИКС №1: Поменяли типы местами. tcp::socket теперь первый, у него есть дефолтный конструктор!
     std::variant<tcp::socket, beast::ssl_stream<tcp::socket>> stream_;
     beast::flat_buffer buffer_;
     http::request<http::string_body> req_;

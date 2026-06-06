@@ -1,4 +1,4 @@
-#include "httpHandlers.hpp" // Важно подключить заголовочный файл класса
+#include "httpServerSession.hpp" // Важно подключить заголовочный файл класса
 #include "auxil.hpp"
 
 HttpServerSession::HttpServerSession(tcp::socket socket, ssl::context& ctx, Database& db, Aws::S3::S3Client& s3, Config& cfg, bool is_auth)
