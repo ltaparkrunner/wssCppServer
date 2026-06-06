@@ -182,6 +182,7 @@ private:
     void handle_delete_file(const DeleteFileRequest& req);  // { boost::ignore_unused(req); }
     void handle_files_ids_request(const FilesIds& req);     // { boost::ignore_unused(req); }
     void handle_path_inf_request(const PathInfoRequest& req);   // { boost::ignore_unused(req); }
+    void send_not_exist_response_async(const std::string& input_path, const std::string& s3_endpoint, const std::string& bucket_name);
 
     void send_envelope(const ServerEnvelope& env) {
         std::string out;

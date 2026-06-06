@@ -195,7 +195,9 @@ void WssSession::handle_path_inf_request(const PathInfoRequest& req) {
 
                 if (folder_doc) {
                     boost::asio::post(ws_.get_executor(), [this, self, input_path, s3_endpoint, bucket_name]() {
-                        this->handle_list_request(input_path);
+                        FilesFoldersListRequest list_req;
+                        list_req.set_foldername(input_path);
+                        this->handle_list_request(list_req); 
 
                         ServerEnvelope response;
                         response.set_type(ServerEnvelope_Type_SERVER_MESSAGE);
@@ -245,8 +247,10 @@ void WssSession::handle_path_inf_request(const PathInfoRequest& req) {
 
                 if (file_doc) {
                     auto view = file_doc->view();
-                    std::string s3_key = view["s3Key"].get_string().value.to_string();
-                    std::string original_name = view["originalName"].get_string().value.to_string();
+                    // std::string s3_key = view["s3Key"].get_string().value.to_string();
+                    // std::string original_name = view["originalName"].get_string().value.to_string();
+                    std::string s3_key { view["s3Key"].get_string().value };
+                    std::string original_name { view["originalName"].get_string().value };
                     int64_t file_size = view["size"] ? view["size"].get_int64().value : 0;
                     std::string mongo_id = view["_id"].get_oid().value.to_string();
 
