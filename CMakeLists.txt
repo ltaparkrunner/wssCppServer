@@ -13,7 +13,10 @@ find_package(bsoncxx REQUIRED)
 find_package(mongocxx REQUIRED)
 find_package(AWSSDK REQUIRED COMPONENTS s3 core CONFIG)
 
-add_executable(picture_server src/main.cpp src/handlers.cpp)
+add_executable(picture_server 
+    src/main.cpp 
+    src/handlers.cpp
+    src/httpHandlers.cpp)
 
 protobuf_generate(
     TARGET picture_server
