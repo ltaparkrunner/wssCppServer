@@ -97,31 +97,134 @@ void HttpServerSession::handle_rest_api() {
 
     if (req_.method() == http::verb::post && req_.target() == "/auth/register") {
         std::cout << "Received registration request: username=" << username << std::endl;
-        try {
-            if (username.empty() || password.empty()) {
-                send_json_response(http::status::bad_request, json{{"error", "Missing fields"}});
-                return;
-            }
-
-            auto collection = db_.get_db()["users"];
-            auto existing = collection.find_one(bsoncxx::builder::stream::document{} << "login" << username << bsoncxx::builder::stream::finalize);
-            
-            if (existing) {
-                send_json_response(http::status::bad_request, json{{"error", "Пользователь уже существует"}});
-                return;
-            }
-
-            std::string pass_hash = AuthUtils::hash_password(password);
-            auto res = collection.insert_one(bsoncxx::builder::stream::document{} << "login" << username << "password" << pass_hash << bsoncxx::builder::stream::finalize);
-            
-            std::string uid = res->inserted_id().get_oid().value.to_string();
-            std::string token = AuthUtils::generate_token(uid, cfg_.jwt_secret);
-
-            send_json_response(http::status::created, json{{"message", "Пользователь создан"}, {"token", token}});
-        } catch (...) {
-            send_json_response(http::status::internal_server_error, json{{"error", "Ошибка регистрации"}});
+        
+        if (username.empty() || password.empty()) {
+            send_json_response(http::status::bad_request, json{{"error", "Missing fields"}});
+            return;
         }
+    
+        auto self = shared_from_this();
+        
+        // ИСПРАВЛЕНО: Используем std::visit для безопасного извлечения executor из std::variant
+        auto thread_pool_executor = std::visit([](auto& s) { 
+            return beast::get_lowest_layer(s).get_executor(); 
+        }, stream_);
+        
+        boost::asio::post(thread_pool_executor, [=, this]() {
+            try {
+                auto mongo_db = db_.get_db(); 
+                auto users_collection = mongo_db["users"];
+                auto records_collection = mongo_db["ImageRecord"];
+                
+                std::string bucket_name = cfg_.s3_bucket;
+                std::string users_prefix = "USERS";
+    
+                auto existing = users_collection.find_one(
+                    bsoncxx::builder::stream::document{} << "login" << username << bsoncxx::builder::stream::finalize
+                );
+                
+                if (existing) {
+                    // ИСПРАВЛЕНО: Тоже через std::visit возвращаем задачу в I/O поток сокета
+                    auto io_executor = std::visit([](auto& s) { return beast::get_lowest_layer(s).get_executor(); }, stream_);
+                    boost::asio::post(io_executor, [this, self]() {
+                        send_json_response(http::status::bad_request, json{{"error", "Пользователь уже существует"}});
+                    });
+                    return;
+                }
+    
+                Aws::S3::Model::HeadBucketRequest head_bucket_req;
+                head_bucket_req.SetBucket(bucket_name);
+                auto head_bucket_outcome = s3_client_.HeadBucket(head_bucket_req);
+    
+                if (!head_bucket_outcome.IsSuccess()) {
+                    std::cout << "Bucket " << bucket_name << " does not exist. Creating..." << std::endl;
+                    
+                    // ИСПРАВЛЕНО: Теперь инклуд подключен, ошибка incomplete type исчезнет
+                    Aws::S3::Model::CreateBucketRequest create_bucket_req;
+                    create_bucket_req.SetBucket(bucket_name);
+                    
+                    auto create_bucket_outcome = s3_client_.CreateBucket(create_bucket_req);
+                    if (!create_bucket_outcome.IsSuccess()) {
+                        throw std::runtime_error("Failed to create S3 bucket: " + create_bucket_outcome.GetError().GetMessage());
+                    }
+                }
+    
+                std::string pass_hash = AuthUtils::hash_password(password);
+                auto user_res = users_collection.insert_one(
+                    bsoncxx::builder::stream::document{} 
+                    << "login" << username 
+                    << "password" << pass_hash 
+                    << bsoncxx::builder::stream::finalize
+                );
+                
+                if (!user_res) {
+                    throw std::runtime_error("Failed to insert user into MongoDB");
+                }
+                
+                std::string uid = user_res->inserted_id().get_oid().value.to_string();
+                std::cout << "Before placeholder initialization for user id: " << uid << std::endl;
+    
+                std::string placeholder_path = users_prefix + "/" + uid + "/.placeholder";
+                
+                Aws::S3::Model::PutObjectRequest put_obj_req;
+                put_obj_req.SetBucket(bucket_name);
+                put_obj_req.SetKey(placeholder_path);
+                
+                auto request_stream = std::make_shared<std::stringstream>("");
+                put_obj_req.SetBody(request_stream);
+    
+                auto put_obj_outcome = s3_client_.PutObject(put_obj_req);
+                if (!put_obj_outcome.IsSuccess()) {
+                    throw std::runtime_error("Failed to upload .placeholder to S3: " + put_obj_outcome.GetError().GetMessage());
+                }
+    
+                using bsoncxx::builder::stream::open_document;
+                using bsoncxx::builder::stream::close_document;
+                
+                auto placeholder_record = bsoncxx::builder::stream::document{}
+                    << "name" << ".placeholder"
+                    << "originalName" << ".placeholder"
+                    << "folder" << (users_prefix + "/" + uid)
+                    << "s3Key" << placeholder_path
+                    << "bucket" << bucket_name
+                    << "userLogin" << username
+                    << "size" << 0
+                    << "info" << open_document 
+                        << "type" << "initialization_file" 
+                    << close_document
+                    << bsoncxx::builder::stream::finalize;
+    
+                records_collection.insert_one(placeholder_record.view());
+    
+                std::string token = AuthUtils::generate_token(uid, cfg_.jwt_secret);
+    
+                // ИСПРАВЛЕНО: Возвращаем отправку ответа через std::visit в I/O поток сокета
+                auto io_executor = std::visit([](auto& s) { return beast::get_lowest_layer(s).get_executor(); }, stream_);
+                boost::asio::post(io_executor, [this, self, token]() {
+                    send_json_response(http::status::created, json{
+                        {"message", "Пользователь создан"}, 
+                        {"token", token}
+                    });
+                });
+    
+            } catch (const std::exception& e) {
+                std::cerr << "Error during registration algorithm: " << e.what() << std::endl;
+                auto io_executor = std::visit([](auto& s) { return beast::get_lowest_layer(s).get_executor(); }, stream_);
+                boost::asio::post(io_executor, [this, self]() {
+                    send_json_response(http::status::internal_server_error, json{{"error", "Ошибка сервера при регистрации"}});
+                });
+            } catch (...) {
+                auto io_executor = std::visit([](auto& s) { return beast::get_lowest_layer(s).get_executor(); }, stream_);
+                boost::asio::post(io_executor, [this, self]() {
+                    send_json_response(http::status::internal_server_error, json{{"error", "Ошибка сервера при регистрации"}});
+                });
+            }
+        });
+        return;
     }
+            else {
+        send_json_response(http::status::not_found, json{{"error", "Not Found"}});
+    }           
 }
 
 void HttpServerSession::send_json_response(http::status status, const json& body) {

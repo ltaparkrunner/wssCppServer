@@ -15,8 +15,12 @@ services:
       - S3_BUCKET=photos
       - JWT_SECRET=secret_key
     depends_on:
-      - mongo
-      - minio
+      # - mongo
+      # - minio
+      mongo:
+        condition: service_started
+      minio:
+        condition: service_healthy # Ждем полной готовности API хранилища
 
   mongo:
     image: mongo:latest
@@ -34,6 +38,11 @@ services:
     command: server /data --console-address ":9001"
     volumes:
       - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 2s
+      timeout: 2s
+      retries: 10  
 
 volumes:
   mongo_data:

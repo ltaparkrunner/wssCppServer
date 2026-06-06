@@ -12,6 +12,11 @@
 #include <aws/core/Aws.h>
 #include <aws/s3/S3Client.h>
 #include <aws/s3/model/PutObjectRequest.h>
+#include <aws/s3/model/HeadBucketRequest.h>
+#include <aws/s3/model/CreateBucketRequest.h>
+#include <aws/s3/model/PutObjectRequest.h>
+#include <sstream>
+#include <variant> // Обязательно для std::visit
 
 #include <bsoncxx/builder/stream/document.hpp>
 #include <bsoncxx/builder/stream/helpers.hpp>

@@ -11,6 +11,7 @@
 #include <aws/core/Aws.h>
 #include <aws/s3/S3Client.h>
 #include <aws/s3/model/PutObjectRequest.h>
+#include <aws/core/auth/AWSCredentialsProvider.h> 
 
 #include <bsoncxx/builder/stream/document.hpp>
 #include <bsoncxx/builder/stream/helpers.hpp>
@@ -79,7 +80,24 @@ int main() {
 
     Aws::SDKOptions options;
     Aws::InitAPI(options);
-    Aws::S3::S3Client s3_client;
+//    Aws::S3::S3Client s3_client;
+
+    // А. Настраиваем эндпоинт (например, http://localhost:9000/)
+    Aws::Client::ClientConfiguration client_config;
+    client_config.endpointOverride = cfg.s3_endpoint; 
+
+    // Б. Передаем ключи доступа из config.hpp
+    Aws::Auth::AWSCredentials credentials;
+    credentials.SetAWSAccessKeyId(cfg.s3_access_key);
+    credentials.SetAWSSecretKey(cfg.s3_secret_key);
+
+    // В. Создаем клиент с отключенной виртуальной адресацией (useVirtualAddressing = false)
+    Aws::S3::S3Client s3_client(
+        credentials, 
+        client_config, 
+        Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never, 
+        false // <- ИСПРАВЛЕНИЕ: Это принудительно включает Path-Style адресацию для MinIO/LocalStack
+    );
 
     const int threads_count = std::max(1u, std::thread::hardware_concurrency());
     asio::io_context ioc{threads_count};
