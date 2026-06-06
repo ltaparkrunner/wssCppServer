@@ -222,7 +222,89 @@ void HttpServerSession::handle_rest_api() {
         });
         return;
     }
-            else {
+    else if (req_.method() == http::verb::post && req_.target() == "/auth/login") {
+        std::cout << "Received login request: username=" << username << std::endl;
+        
+        // 1. Быстрая проверка на пустые поля до ухода в пул потоков
+        if (username.empty() || password.empty()) {
+            send_json_response(http::status::bad_request, json{{"error", "Missing fields"}});
+            return;
+        }
+    
+        // Захватываем shared_ptr на сессию для предотвращения деструкции в фоне
+        auto self = shared_from_this();
+        
+        // Безопасно извлекаем executor через std::visit из std::variant stream_
+        auto thread_pool_executor = std::visit([](auto& s) { 
+            return beast::get_lowest_layer(s).get_executor(); 
+        }, stream_);
+        
+        // Переносим блокирующую логику (БД и хэширование) в пул потоков
+        boost::asio::post(thread_pool_executor, [=, this]() {
+            try {
+                auto mongo_db = db_.get_db(); 
+                auto users_collection = mongo_db["users"];
+    
+                // 2. Ищем пользователя в MongoDB по логину
+                auto user_doc = users_collection.find_one(
+                    bsoncxx::builder::stream::document{} << "login" << username << bsoncxx::builder::stream::finalize
+                );
+                
+                if (!user_doc) {
+                    // Возвращаем отправку ответа "Неверный логин" в I/O поток сокета
+                    auto io_executor = std::visit([](auto& s) { return beast::get_lowest_layer(s).get_executor(); }, stream_);
+                    boost::asio::post(io_executor, [this, self]() {
+                        send_json_response(http::status::unauthorized, json{{"error", "Неверный логин"}});
+                    });
+                    return;
+                }
+    
+                std::cout << "User found: " << username << std::endl;
+                auto view = user_doc->view();
+                std::string stored_hash{ view["password"].get_string().value };
+                std::string uid = view["_id"].get_oid().value.to_string();
+    
+                // 3. Сверяем пароли. 
+                // ПРИМЕЧАНИЕ: Если AuthUtils::hash_password использует соль внутри хэша (например, bcrypt), 
+                // используйте ваш метод верификации, например: AuthUtils::verify_password(password, stored_hash).
+                // Если это простой хэш (SHA256/MD5), то метод ниже полностью корректен:
+                std::string incoming_hash = AuthUtils::hash_password(password);
+                
+                if (incoming_hash != stored_hash) {
+                    auto io_executor = std::visit([](auto& s) { return beast::get_lowest_layer(s).get_executor(); }, stream_);
+                    boost::asio::post(io_executor, [this, self]() {
+                        send_json_response(http::status::unauthorized, json{{"error", "Неверный пароль"}});
+                    });
+                    return;
+                }
+    
+                std::cout << "Correct password: " << username << std::endl;
+    
+                // 4. JWT: Генерация токена доступа
+                std::string token = AuthUtils::generate_token(uid, cfg_.jwt_secret);
+    
+                // 5. Успешный ответ клиенту
+                auto io_executor = std::visit([](auto& s) { return beast::get_lowest_layer(s).get_executor(); }, stream_);
+                boost::asio::post(io_executor, [this, self, token]() {
+                    send_json_response(http::status::ok, json{{"token", token}});
+                });
+    
+            } catch (const std::exception& e) {
+                std::cerr << "Error during login algorithm: " << e.what() << std::endl;
+                auto io_executor = std::visit([](auto& s) { return beast::get_lowest_layer(s).get_executor(); }, stream_);
+                boost::asio::post(io_executor, [this, self]() {
+                    send_json_response(http::status::internal_server_error, json{{"error", "Ошибка входа"}});
+                });
+            } catch (...) {
+                auto io_executor = std::visit([](auto& s) { return beast::get_lowest_layer(s).get_executor(); }, stream_);
+                boost::asio::post(io_executor, [this, self]() {
+                    send_json_response(http::status::internal_server_error, json{{"error", "Ошибка входа"}});
+                });
+            }
+        });
+        return;
+    }
+    else {
         send_json_response(http::status::not_found, json{{"error", "Not Found"}});
     }           
 }
