@@ -9,6 +9,8 @@
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include <filesystem>
+#include <algorithm>
+#include <vector>
 
 // Декодирование URL-символов (заменяет %20 на пробелы, %3A на двоеточия и т.д.)
 inline std::string url_decode(const std::string& in) {
@@ -56,3 +58,5 @@ struct FilenameInfo {
 };
 
 FilenameInfo prepare_filename(const std::string& original_name);
+std::string sanitize(const std::string& segment);
+std::string sanitizeToPath(const std::string& input);

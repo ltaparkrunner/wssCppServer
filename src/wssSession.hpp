@@ -125,60 +125,7 @@ private:
             std::cerr << "Received unknown or empty client message from user " << user_id_ << std::endl;
             send_error("Empty or unhandled packet action.");
         }
-    }
-/*
-    void handle_add_file(const AddFileRequest& req) {
-        try {
-            std::string filename = req.filename();
-            std::string folder = req.folder();
-            std::string file_data = req.data();
-
-            std::string sanitized_folder = AuxHandler::sanitize_to_path(folder);
-            auto [unique_name, ext] = AuxHandler::prepare_filename(filename);
-            
-            std::string target_folder = sanitized_folder.empty() ? ("users/" + user_id_ + "/") : sanitized_folder + "/";
-            std::string s3_key = target_folder + unique_name;
-
-            Aws::S3::Model::PutObjectRequest s3_req;
-            s3_req.SetBucket(cfg_.s3_bucket.c_str());
-            s3_req.SetKey(s3_key.c_str());
-            s3_req.SetBody(std::make_shared<std::stringstream>(file_data));
-            if (!s3_client_.PutObject(s3_req).IsSuccess()) {
-                send_error("MinIO write failed");
-                return;
-            }
-
-            auto users_col = db_.get_db()["users"];
-            auto user_doc = users_col.find_one(bsoncxx::builder::stream::document{} << "_id" << bsoncxx::oid{user_id_} << bsoncxx::builder::stream::finalize);
-            
-            std::string usr_login = "Unknown";
-            if (user_doc) {
-                usr_login = std::string(user_doc->view()["login"].get_string().value);
-            }
-
-            auto records_col = db_.get_db()["imagerecords"];
-            auto doc = bsoncxx::builder::stream::document{}
-                << "name" << unique_name
-                << "originalName" << filename
-                << "folder" << target_folder
-                << "s3Key" << s3_key
-                << "bucket" << cfg_.s3_bucket
-                << "userLogin" << usr_login
-                << "size" << static_cast<int64_t>(file_data.size())
-                << bsoncxx::builder::stream::finalize;
-            records_col.insert_one(doc.view());
-
-            ServerEnvelope resp;
-            resp.set_type(ServerEnvelope_Type_SERVER_MESSAGE);
-            ServerResponse* s_res = resp.mutable_serverresp();
-            s_res->set_content("upload_result");
-            s_res->set_status("success");
-            send_envelope(resp);
-        } catch (const std::exception& e) {
-            send_error(e.what());
-        }
-    }
-*/     
+    } 
     
     void handle_add_file(const AddFileRequest& req);  // { boost::ignore_unused(req); }
     void handle_list_request(const FilesFoldersListRequest& req);   // { boost::ignore_unused(req); }

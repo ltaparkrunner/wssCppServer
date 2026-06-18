@@ -495,6 +495,9 @@ void WssSession::handle_path_inf_request(const PathInfoRequest& req) {
             std::string prefix = users_prefix + "/" + user_id_;
             std::string formatted_path = input_path;
 
+            std::cout << "input_path: " << input_path << "  prefix: " << prefix << "  formatted_path: " 
+            << formatted_path << std::endl;
+
             // 1. Обеспечиваем наличие префикса в пути
             if (formatted_path.rfind(prefix, 0) != 0) { 
                 if (formatted_path.rfind(users_prefix, 0) == 0) {
@@ -504,13 +507,16 @@ void WssSession::handle_path_inf_request(const PathInfoRequest& req) {
                 }
             }
 
+            std::cout << "input_path: " << input_path << "  prefix: " << prefix << "  formatted_path: " 
+            << formatted_path << std::endl;
+
             bool is_explicit_folder = !formatted_path.empty() && formatted_path.back() == '/';
             
             // Лямбда для экранирования спецсимволов в regex (аналог escapeRegex)
-            auto escape_regex = [](const std::string& str) {
-                std::regex special_chars(R"([-\\^$*+?.()|[\]{}])");
-                return std::regex_replace(str, special_chars, R"(\$&)");
-            };
+            // auto escape_regex = [](const std::string& str) {
+            //     std::regex special_chars(R"([-\\^$*+?.()|[\]{}])");
+            //     return std::regex_replace(str, special_chars, R"(\$&)");
+            // };
 
             // Извлекаем базу данных из вашей обертки db_
             auto mongo_db = db_.get_db(); 
@@ -521,13 +527,19 @@ void WssSession::handle_path_inf_request(const PathInfoRequest& req) {
             std::string bucket_name = cfg_.s3_bucket;
             int s3_expires = 360; // Значение по умолчанию (в Config этого поля нет)
 
+            std::cout << "is3_endpoint : " << s3_endpoint << "bucket_name" << bucket_name << std::endl;
             // --- КЕЙС 1: Путь заканчивается на "/" ---
             if (is_explicit_folder) {
+                std::cout << " is_explicit_folder " << std::endl;
                 using bsoncxx::builder::stream::document;
                 using bsoncxx::builder::stream::finalize;
 
-                std::string pattern = "^" + escape_regex(formatted_path);
+                std::string pattern = "^" + sanitizeToPath(formatted_path);
                 auto query = document{} << "folder" << bsoncxx::types::b_regex{pattern} << finalize;
+
+                //std::cout << "query: " << query.data( );bsoncxx::to_json(view)
+                std::cout << "query: " << bsoncxx::to_json(query.view()) << std::endl;
+                //std::cout << "query: " << query.view();
                 
                 mongocxx::options::find opts{};
                 opts.projection(document{} << "_id" << 1 << finalize);
@@ -535,6 +547,7 @@ void WssSession::handle_path_inf_request(const PathInfoRequest& req) {
                 auto doc = collection.find_one(query.view(), opts);
 
                 if (doc) {
+                    std::cout << " if (doc) " << std::endl;
                     // Возвращаем вызовы в поток сокета (I/O thread) для безопасной отправки
                     boost::asio::post(ws_.get_executor(), [this, self, input_path, s3_endpoint, bucket_name]() {
                         FilesFoldersListRequest list_req;
@@ -552,6 +565,7 @@ void WssSession::handle_path_inf_request(const PathInfoRequest& req) {
                     });
                     return;
                 } else {
+                    std::cout << " if (doc) else " << std::endl;
                     send_not_exist_response_async(input_path, s3_endpoint, bucket_name);
                     return;
                 }
@@ -560,10 +574,11 @@ void WssSession::handle_path_inf_request(const PathInfoRequest& req) {
             // --- КЕЙС 2: Проверка папки без явного слэша ---
             std::string folder_with_slash = formatted_path + "/";
             {
+                std::cout << "КЕЙС 2: Проверка папки без явного слэша is_explicit_folder " << std::endl;
                 using bsoncxx::builder::stream::document;
                 using bsoncxx::builder::stream::finalize;
 
-                std::string pattern = "^" + escape_regex(folder_with_slash);
+                std::string pattern = "^" + sanitizeToPath(folder_with_slash);
                 auto folder_query = document{} << "folder" << bsoncxx::types::b_regex{pattern} << finalize;
                 
                 mongocxx::options::find opts{};
@@ -572,6 +587,7 @@ void WssSession::handle_path_inf_request(const PathInfoRequest& req) {
                 auto folder_doc = collection.find_one(folder_query.view(), opts);
 
                 if (folder_doc) {
+                    std::cout << "folder_doc " << std::endl;
                     boost::asio::post(ws_.get_executor(), [this, self, input_path, s3_endpoint, bucket_name]() {
                         FilesFoldersListRequest list_req;
                         list_req.set_foldername(input_path);
@@ -592,6 +608,7 @@ void WssSession::handle_path_inf_request(const PathInfoRequest& req) {
 
             // --- КЕЙС 3: Поиск файла по s3Key или комбинации (folder + originalName) ---
             {
+                std::cout << "КЕЙС 3: Поиск файла по s3Key или комбинации (folder + originalName) " << std::endl;
                 using bsoncxx::builder::stream::document;
                 using bsoncxx::builder::stream::open_array;
                 using bsoncxx::builder::stream::close_array;
@@ -624,6 +641,7 @@ void WssSession::handle_path_inf_request(const PathInfoRequest& req) {
                 auto file_doc = collection.find_one(file_query.view(), opts);
 
                 if (file_doc) {
+                    std::cout << "file_doc " << std::endl;
                     auto view = file_doc->view();
                     // std::string s3_key = view["s3Key"].get_string().value.to_string();
                     // std::string original_name = view["originalName"].get_string().value.to_string();
@@ -660,9 +678,11 @@ void WssSession::handle_path_inf_request(const PathInfoRequest& req) {
             }
 
             // --- КЕЙС 4: Ничего не найдено ---
+            std::cout << "send_not_exist_response_async " << std::endl;
             send_not_exist_response_async(input_path, s3_endpoint, bucket_name);
 
         } catch (const std::exception& e) {
+            std::cout << "Exception in handle_path_inf_request thread: " << e.what() << std::endl;
             std::cerr << "Exception in handle_path_inf_request thread: " << e.what() << std::endl;
         }
     });
