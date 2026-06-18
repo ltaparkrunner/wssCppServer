@@ -16,7 +16,8 @@ find_package(AWSSDK REQUIRED COMPONENTS s3 core CONFIG)
 add_executable(picture_server 
     src/main.cpp 
     src/wssSession.cpp
-    src/httpServerSession.cpp)
+    src/httpServerSession.cpp
+    src/auxil.cpp)
 
 protobuf_generate(
     TARGET picture_server

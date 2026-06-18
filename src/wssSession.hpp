@@ -21,6 +21,7 @@
 #include <aws/core/Aws.h>
 #include <aws/s3/S3Client.h>
 #include <aws/s3/model/PutObjectRequest.h>
+#include <aws/s3/model/DeleteObjectRequest.h>
 
 #include "image.pb.h"
 #include "config.hpp"
@@ -125,7 +126,7 @@ private:
             send_error("Empty or unhandled packet action.");
         }
     }
-
+/*
     void handle_add_file(const AddFileRequest& req) {
         try {
             std::string filename = req.filename();
@@ -177,7 +178,9 @@ private:
             send_error(e.what());
         }
     }
-
+*/     
+    
+    void handle_add_file(const AddFileRequest& req);  // { boost::ignore_unused(req); }
     void handle_list_request(const FilesFoldersListRequest& req);   // { boost::ignore_unused(req); }
     void handle_delete_file(const DeleteFileRequest& req);  // { boost::ignore_unused(req); }
     void handle_files_ids_request(const FilesIds& req);     // { boost::ignore_unused(req); }

@@ -99,28 +99,28 @@ namespace AuxHandler {
 
     // Полная копия функции prepareFilename
     // Возвращает структуру {uniqueName, ext}
-    struct FilenameResult {
-        std::string uniqueName;
-        std::string ext;
-    };
+    // struct FilenameResult {
+    //     std::string uniqueName;
+    //     std::string ext;
+    // };
 
-    inline FilenameResult prepare_filename(const std::string& original_name) {
-        std::string name_only = original_name;
-        std::string ext = "";
+    // inline FilenameResult prepare_filename(const std::string& original_name) {
+    //     std::string name_only = original_name;
+    //     std::string ext = "";
 
-        // Извлекаем расширение (Аналог path.extname)
-        size_t dot_pos = original_name.find_last_of(".");
-        if (dot_pos != std::string::npos && dot_pos != 0) {
-            name_only = original_name.substr(0, dot_pos);
-            ext = original_name.substr(dot_pos); // Сохраняет точку (например, ".png")
-        }
+    //     // Извлекаем расширение (Аналог path.extname)
+    //     size_t dot_pos = original_name.find_last_of(".");
+    //     if (dot_pos != std::string::npos && dot_pos != 0) {
+    //         name_only = original_name.substr(0, dot_pos);
+    //         ext = original_name.substr(dot_pos); // Сохраняет точку (например, ".png")
+    //     }
 
-        // Очищаем имя (Аналог safeName = sanitize(nameOnly)...)
-        std::string safe_name = sanitize_segment(name_only);
+    //     // Очищаем имя (Аналог safeName = sanitize(nameOnly)...)
+    //     std::string safe_name = sanitize_segment(name_only);
 
-        // Собираем финальное имя: ${uuidv4()}-${safeName}${ext}
-        std::string unique_name = generate_uuid() + "-" + safe_name + ext;
+    //     // Собираем финальное имя: ${uuidv4()}-${safeName}${ext}
+    //     std::string unique_name = generate_uuid() + "-" + safe_name + ext;
 
-        return FilenameResult{unique_name, ext};
-    }
+    //     return FilenameResult{unique_name, ext};
+    // }
 }

@@ -1,8 +1,14 @@
+#pragma once
 #include <string>
 #include <map>
 #include <sstream>
 #include <iostream>
 #include <iomanip>
+
+#include <boost/uuid/uuid.hpp>
+#include <boost/uuid/uuid_generators.hpp>
+#include <boost/uuid/uuid_io.hpp>
+#include <filesystem>
 
 // Декодирование URL-символов (заменяет %20 на пробелы, %3A на двоеточия и т.д.)
 inline std::string url_decode(const std::string& in) {
@@ -42,3 +48,11 @@ inline std::map<std::string, std::string> parse_form_body(const std::string& bod
     }
     return params;
 }
+
+// Аналог Node.js функции prepareFilename
+struct FilenameInfo {
+    std::string unique_name;
+    std::string ext;
+};
+
+FilenameInfo prepare_filename(const std::string& original_name);

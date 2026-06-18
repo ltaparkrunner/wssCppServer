@@ -29,6 +29,7 @@ RUN /opt/vcpkg/vcpkg install \
     boost-asio \
     boost-beast \
     boost-thread \
+    boost-uuid \
     protobuf \
     nlohmann-json \
     jwt-cpp \
