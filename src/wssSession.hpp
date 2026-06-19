@@ -95,12 +95,29 @@ private:
     }
 
     void dispatch_protobuf_message(const ClientEnvelope& envelope) {
+/*
+
+
+                        if(envelope.reqUserBuckets){
+                            // console.log("Received bucket list request from user: ", req.user ? req.user.id : "Unknown");
+                            await handleGetUserBucket(ws, envelope.reqUserBuckets, s3Client, req.user ? req.user.id : "Unknown");
+                        }                   //      envelope.content
+                        if(envelope.addFile){
+                            // async function handleAddFile(msg, root, s3Client, BaseMessage, ws)
+                            await handleAddFile(ws, envelope.addFile, s3Client, req.user.id);
+                        }
+
+
+*/
         if (envelope.type() != ClientEnvelope_Type_CLIENT_MESSAGE) {
             std::cerr << "Received non-client message envelope." << std::endl;
             send_error("Unhandled or unknown envelope type.");
             return;
         }
-
+        if(envelope.has_requserbuckets()) {
+            std::cout << "Received UserBucketsRequest from user " << user_id_ << std::endl;
+            handle_user_bucket(envelope.requserbuckets());            
+        } 
         if (envelope.has_addfile()) {
             std::cout << "Received AddFileRequest from user " << user_id_ << std::endl;
             handle_add_file(envelope.addfile());
@@ -126,7 +143,9 @@ private:
             send_error("Empty or unhandled packet action.");
         }
     } 
-    
+                               // reqUserBuckets    
+    void handle_user_bucket(const BucketsRequest& req);
+                            // addFile
     void handle_add_file(const AddFileRequest& req);  // { boost::ignore_unused(req); }
     void handle_list_request(const FilesFoldersListRequest& req);   // { boost::ignore_unused(req); }
     void handle_delete_file(const DeleteFileRequest& req);  // { boost::ignore_unused(req); }

@@ -6,6 +6,114 @@
 #include <boost/core/ignore_unused.hpp>
 #include <bsoncxx/builder/stream/document.hpp>
 
+// void WssSession::handle_user_bucket(const BucketsRequest& req){
+//     std::cout << "handle_user_bucket" << std::endl;
+//     auto self = shared_from_this();
+//     auto thread_pool_executor = ws_.get_executor();
+
+//     // Уходим в пул потоков, так как операции с S3 и Mongo заблокируют сокет
+//     boost::asio::post(thread_pool_executor, [this, self, req]() {
+//         try {
+//             std::string user_name = req.username();
+
+//         } catch (const std::exception& e) {
+//             std::cerr << "Error in handle_add_file: " << e.what() << std::endl;
+//             // При необходимости здесь можно отправить пакет с ошибкой ("status": "error")
+//         }
+//     });
+// }
+
+void WssSession::handle_user_bucket(const BucketsRequest& req) {
+    std::cout << "handle_user_bucket" << std::endl;
+    auto self = shared_from_this();
+    auto thread_pool_executor = ws_.get_executor();
+
+    // Уходим в пул потоков, так как синхронный запрос к S3 заблокирует сокет
+    boost::asio::post(thread_pool_executor, [this, self, req]() {
+        try {
+            std::string bucket_name = cfg_.s3_bucket;
+
+            // AWS S3: Проверяем существование бакета через HeadBucket
+            Aws::S3::Model::HeadBucketRequest head_bucket_req;
+            head_bucket_req.SetBucket(bucket_name);
+
+            auto head_bucket_outcome = s3_client_.HeadBucket(head_bucket_req);
+            std::cout << "boost::asio::post(thread_pool_executor, [this, self, req]() bucket_name: " << bucket_name 
+            << "head_bucket_outcome.IsSuccess(): " << head_bucket_outcome.IsSuccess() << std::endl;
+            if (head_bucket_outcome.IsSuccess()) {
+                // Бакет существует: формируем успешный ответ аналогично Node.js
+                std::cout << "bucketInfo: " << bucket_name << std::endl;
+
+                // Получаем endpoint из конфигурации s3_client (в AWS SDK C++ это клиентская конфигурация)
+                // Если у вас кастомный эндпоинт (например, MinIO), подставьте его из cfg_ или s3_client_
+                std::string s3_url = "https://" + bucket_name + "://"; 
+                // Если используется кастомный эндпоинт: "http://127.0.0" + bucket_name + "/"
+
+                // Возвращаемся в I/O поток для отправки сообщения
+                boost::asio::post(ws_.get_executor(), [this, self, bucket_name, s3_url]() {
+                    ServerEnvelope response;
+                    response.set_type(ServerEnvelope_Type_SERVER_MESSAGE);
+                    
+                    // Заполняем структуру buckets -> bucketInf на основе вашей Protobuf схемы
+                    auto* buckets_msg = response.mutable_buckets();
+                    auto* bucket_info = buckets_msg->add_bucketinf(); // Предполагается, что это repeated поле
+                    bucket_info->set_bucketname(bucket_name);
+                    bucket_info->set_url(s3_url);
+
+                    this->send_envelope(response);
+                });
+
+            } else {
+                // Бакет не найден или произошла другая ошибка (например, 404 или Access Denied)
+                auto aws_error = head_bucket_outcome.GetError();
+                auto status_code = aws_error.GetResponseCode();
+
+                if (status_code == Aws::Http::HttpResponseCode::NOT_FOUND) {
+                    // Ошибка 404: Бакет не найден
+                    boost::asio::post(ws_.get_executor(), [this, self, aws_error]() {
+                        ServerEnvelope response;
+                        response.set_type(ServerEnvelope_Type_SERVER_MESSAGE);
+                        
+                        auto* server_resp = response.mutable_serverresp();
+                        server_resp->set_content("Bucket images not found");
+                        // Передаем ошибку в поле status (в Protobuf это строка или структура)
+                        server_resp->set_status(aws_error.GetMessage()); 
+
+                        std::cout << "Response for non-existing path (404): " << aws_error.GetMessage() << std::endl;
+                        this->send_envelope(response);
+                    });
+                } else {
+                    // Любая другая ошибка (например, 403 Access Denied)
+                    boost::asio::post(ws_.get_executor(), [this, self, aws_error]() {
+                        ServerEnvelope response;
+                        response.set_type(ServerEnvelope_Type_SERVER_MESSAGE);
+                        
+                        auto* server_resp = response.mutable_serverresp();
+                        server_resp->set_content("Access denied or other error: " + aws_error.GetMessage());
+                        server_resp->set_status(aws_error.GetMessage());
+
+                        std::cout << "Response for non-existing path (Error): " << aws_error.GetMessage() << std::endl;
+                        this->send_envelope(response);
+                    });
+                }
+            }
+
+        } catch (const std::exception& e) {
+            std::cerr << "Error in handle_user_bucket: " << e.what() << std::endl;
+            
+            // В случае непредвиденного исключения отправляем общую ошибку
+            boost::asio::post(ws_.get_executor(), [this, self, error_msg = std::string(e.what())]() {
+                ServerEnvelope response;
+                response.set_type(ServerEnvelope_Type_SERVER_MESSAGE);
+                auto* server_resp = response.mutable_serverresp();
+                server_resp->set_content("Access denied or other error: " + error_msg);
+                server_resp->set_status("EXCEPTION");
+                this->send_envelope(response);
+            });
+        }
+    });
+}
+
 void WssSession::handle_add_file(const AddFileRequest& req) {
     auto self = shared_from_this();
     auto thread_pool_executor = ws_.get_executor();

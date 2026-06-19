@@ -85,6 +85,8 @@ int main() {
     // А. Настраиваем эндпоинт (например, http://localhost:9000/)
     Aws::Client::ClientConfiguration client_config;
     client_config.endpointOverride = cfg.s3_endpoint; 
+    std::cout << "client_config.endpointOverride" << client_config.endpointOverride << std::endl;
+    // client_config.enableVirtualAddressing = false; 
 
     // Б. Передаем ключи доступа из config.hpp
     Aws::Auth::AWSCredentials credentials;
