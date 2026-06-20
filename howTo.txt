@@ -31,3 +31,5 @@ the terminal command: curl -k -X POST https://localhost:8081/auth/register \
      sent and reseved the message to server commit dc92cbcd018eadea36ed901d867a31456fa806bc.
 
 than strong changes. 
+
+why it returns such a strange answer?

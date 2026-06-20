@@ -32,7 +32,7 @@ void WssSession::handle_user_bucket(const BucketsRequest& req) {
     boost::asio::post(thread_pool_executor, [this, self, req]() {
         try {
             std::string bucket_name = cfg_.s3_bucket;
-
+            std::string s3_endpoint = cfg_.s3_endpoint;
             // AWS S3: Проверяем существование бакета через HeadBucket
             Aws::S3::Model::HeadBucketRequest head_bucket_req;
             head_bucket_req.SetBucket(bucket_name);
@@ -46,7 +46,8 @@ void WssSession::handle_user_bucket(const BucketsRequest& req) {
 
                 // Получаем endpoint из конфигурации s3_client (в AWS SDK C++ это клиентская конфигурация)
                 // Если у вас кастомный эндпоинт (например, MinIO), подставьте его из cfg_ или s3_client_
-                std::string s3_url = "https://" + bucket_name + "://"; 
+                //std::string s3_url = "https://" + bucket_name + ":/"; 
+                std::string s3_url = s3_endpoint  + bucket_name + "/"; 
                 // Если используется кастомный эндпоинт: "http://127.0.0" + bucket_name + "/"
 
                 // Возвращаемся в I/O поток для отправки сообщения
@@ -59,7 +60,7 @@ void WssSession::handle_user_bucket(const BucketsRequest& req) {
                     auto* bucket_info = buckets_msg->add_bucketinf(); // Предполагается, что это repeated поле
                     bucket_info->set_bucketname(bucket_name);
                     bucket_info->set_url(s3_url);
-
+                    std::cout << "bucket_name: " << bucket_name << "  s3_url: " << s3_url << std::endl;
                     this->send_envelope(response);
                 });
 
@@ -380,7 +381,7 @@ void WssSession::handle_list_request(const FilesFoldersListRequest& req) {
                 folders_payload.push_back({folder_nm, folder_url});
             }
             std::cout << "Real folders in folder count: " << folders_payload.size() << std::endl;
-
+            std::cout << "minio_path: " << minio_path << std::endl;
             // --- 3. СБОРКА И ОТПРАВКА ОТВЕТА В ПОТОКЕ СОКЕТА ---
             boost::asio::post(ws_.get_executor(), [this, self, files_payload, folders_payload]() {
                 ServerEnvelope response;
@@ -392,6 +393,7 @@ void WssSession::handle_list_request(const FilesFoldersListRequest& req) {
                     auto* f = list_resp->add_files();
                     f->set_filename(file.file_name);
                     f->set_mongoid(file.mongo_id);
+                    std::cout << "file.url: " << file.url << std::endl;
                     f->set_url(file.url);
                     f->set_size(file.size);
                 }
@@ -400,8 +402,9 @@ void WssSession::handle_list_request(const FilesFoldersListRequest& req) {
                 for (const auto& folder : folders_payload) {
                     auto* f = list_resp->add_folders();
                     f->set_foldername(folder.folder_name);
+                    std::cout << "folder.url: " << folder.url << std::endl;
                     f->set_url(folder.url);
-                }
+                } 
 
                 std::cout << "Final response payload prepared. Sending..." << std::endl;
                 this->send_envelope(response);
