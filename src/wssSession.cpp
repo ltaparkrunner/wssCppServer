@@ -406,7 +406,7 @@ void WssSession::handle_list_request(const FilesFoldersListRequest& req) {
                     f->set_url(folder.url);
                 } 
 
-                std::cout << "Final response payload prepared. Sending..." << std::endl;
+                std::cout << "Final response payload prepared. Sending... netPath:" /* << response.netpath() */ << std::endl;
                 this->send_envelope(response);
             });
 
@@ -638,7 +638,7 @@ void WssSession::handle_path_inf_request(const PathInfoRequest& req) {
             std::string bucket_name = cfg_.s3_bucket;
             int s3_expires = 360; // Значение по умолчанию (в Config этого поля нет)
 
-            std::cout << "is3_endpoint : " << s3_endpoint << "bucket_name" << bucket_name << std::endl;
+            std::cout << "is3_endpoint : " << s3_endpoint << "  bucket_name: " << bucket_name << std::endl;
             // --- КЕЙС 1: Путь заканчивается на "/" ---
             if (is_explicit_folder) {
                 std::cout << " is_explicit_folder " << std::endl;
@@ -668,7 +668,8 @@ void WssSession::handle_path_inf_request(const PathInfoRequest& req) {
                         ServerEnvelope response;
                         response.set_type(ServerEnvelope_Type_SERVER_MESSAGE);
                         auto* path_resp = response.mutable_pathinfresponse();
-                        path_resp->set_netpath(s3_endpoint + "/" + bucket_name + "/" + input_path);
+                        path_resp->set_netpath(s3_endpoint + bucket_name + "/" + input_path);
+                        std::cout << "mutable_pathinfresponse set_netpath: " << s3_endpoint + bucket_name + "/" + input_path << std::endl;
                         path_resp->set_netstorepath("");
                         path_resp->set_result("folder");
 
@@ -707,7 +708,7 @@ void WssSession::handle_path_inf_request(const PathInfoRequest& req) {
                         ServerEnvelope response;
                         response.set_type(ServerEnvelope_Type_SERVER_MESSAGE);
                         auto* path_resp = response.mutable_pathinfresponse();
-                        path_resp->set_netpath(s3_endpoint + "/" + bucket_name + "/" + input_path + "/");
+                        path_resp->set_netpath(s3_endpoint + bucket_name + "/" + input_path + "/");
                         path_resp->set_netstorepath("");
                         path_resp->set_result("folder");
 
@@ -806,7 +807,8 @@ void WssSession::send_not_exist_response_async(const std::string& input_path, co
         ServerEnvelope response;
         response.set_type(ServerEnvelope_Type_SERVER_MESSAGE);
         auto* path_resp = response.mutable_pathinfresponse();
-        path_resp->set_netpath(s3_endpoint + "/" + bucket_name + "/" + input_path + "/");
+        path_resp->set_netpath(s3_endpoint + bucket_name + "/" + input_path + "/");
+        std::cout << "end_not_exist_response_async set_netpath: " << s3_endpoint + "/" + bucket_name + "/" + input_path + "/" << std::endl;
         path_resp->set_netstorepath("");
         path_resp->set_result("not exist");
 

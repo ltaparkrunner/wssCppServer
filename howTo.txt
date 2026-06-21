@@ -33,3 +33,7 @@ the terminal command: curl -k -X POST https://localhost:8081/auth/register \
 than strong changes. 
 
 why it returns such a strange answer?
+
+TODO:
+remove double back slashes before images, and force to open the net folder, or show the message.
+правильно именовать файлы на диске не c6602cb8-8bb0-41c8-8278-b60176b84aaf.jpg, а pict3.jpg
