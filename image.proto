@@ -17,6 +17,12 @@ message AddFileRequest {
   bytes data = 4;           // Сырые байты картинки
 }
 
+message RewriteFileRequest {
+  string fileName = 1;
+  string folder = 2;
+  string fileId = 3;
+} 
+
 // Запрос от клиента на создание папки
 message AddFolderRequest {
   string folderName = 1;
@@ -140,7 +146,7 @@ message ClientEnvelope {
     CLIENT_MESSAGE = 2;
   }
   Type type = 1;
-  string token = 14;
+  string token = 15;
   
   oneof content {
     AddFileRequest addFile = 2;
@@ -155,6 +161,7 @@ message ClientEnvelope {
     DeleteBucketRequest deleteBucket = 11;
     RegisterRequest regRequest = 12;
     AuthRequest authRequest = 13;
+    RewriteFileRequest rewriteFileRequest = 14;
   }
 }
 

@@ -3,6 +3,8 @@
 FilenameInfo prepare_filename(const std::string& original_name) {
     std::filesystem::path p(original_name);
     std::string ext = p.extension().string(); // Получаем расширение, например, ".jpg"
+    std::string fname = sanitize(p.filename().string()); // Получаем имя файла
+
     if (!ext.empty() && ext.front() == '.') {
         ext = ext.substr(1); // Убираем точку для записи в БД типа {type: "jpg"}
     }
@@ -13,7 +15,7 @@ FilenameInfo prepare_filename(const std::string& original_name) {
     std::string uuid_str = boost::uuids::to_string(u);
     
     // Формируем уникальное имя файла: uuid.jpg
-    std::string unique_name = ext.empty() ? uuid_str : (uuid_str + "." + ext);
+    std::string unique_name = uuid_str +"-"+fname;
     
     return {unique_name, ext};
 }
