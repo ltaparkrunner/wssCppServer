@@ -21,6 +21,9 @@
 #include <bsoncxx/builder/stream/document.hpp>
 #include <bsoncxx/builder/stream/helpers.hpp>
 #include <bsoncxx/json.hpp>
+#include <jwt-cpp/jwt.h>
+#include <jwt-cpp/traits/nlohmann-json/defaults.h> 
+
 #include <bsoncxx/oid.hpp>
 #include <mongocxx/instance.hpp>
 

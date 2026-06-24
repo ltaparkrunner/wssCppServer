@@ -933,7 +933,7 @@ void WssSession::send_not_exist_response_async(const std::string& input_path, co
         response.set_type(ServerEnvelope_Type_SERVER_MESSAGE);
         auto* path_resp = response.mutable_pathinfresponse();
         path_resp->set_netpath(s3_endpoint + bucket_name + "/" + input_path + "/");
-        std::cout << "end_not_exist_response_async set_netpath: " << s3_endpoint + "/" + bucket_name + "/" + input_path + "/" << std::endl;
+        std::cout << "end_not_exist_response_async set_netpath: " << s3_endpoint + bucket_name + "/" + input_path + "/" << std::endl;
         path_resp->set_netstorepath("");
         path_resp->set_result("not exist");
 

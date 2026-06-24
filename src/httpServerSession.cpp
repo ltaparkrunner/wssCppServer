@@ -50,12 +50,33 @@ void HttpServerSession::on_read(beast::error_code ec, std::size_t) {
         
         std::string token = auth_header.substr(7);
         try {
+            // 1. Сначала просто декодируем токен (как и было изначально)
             auto decoded = jwt::decode<jwt::traits::nlohmann_json>(token);
+
+            // 2. Создаем и настраиваем верификатор
+            auto verifier = jwt::verify<jwt::traits::nlohmann_json>();
+            verifier.allow_algorithm(jwt::algorithm::hs256{ std::string(cfg_.jwt_secret) });
+            verifier.with_issuer(std::string("picture_server"));
+            verifier.leeway(10); 
+
+            // 3. Вызываем verify. Метод принимает декодированный токен,
+            // проверяет его (exp, iss, подпись) и ничего не возвращает (void).
+            // Если что-то не так, он выбросит исключение и мы уйдем в catch.
+            verifier.verify(decoded);
+
+            // 4. Если мы дошли сюда, токен 100% валиден. Работаем с объектом `decoded`
+            nlohmann::json header_obj  = decoded.get_header_json();
+            nlohmann::json payload_obj = decoded.get_payload_json();
+
+            std::cout << "=== Beautiful Header ===\n"  << header_obj.dump(4)  << "\n\n";
+            std::cout << "=== Beautiful Payload ===\n" << payload_obj.dump(4) << "\n";
+            std::cout << "token: " << token << std::endl;
+            
             std::string user_id = decoded.get_payload_claim("id").as_string();
+            std::cout << "user_id: " << user_id << std::endl;
 
-            // Так как это порт 8080, внутри гарантированно лежит ssl_stream
+            // Передача в WebSocket сессию...
             auto& ssl_stream = std::get<beast::ssl_stream<tcp::socket>>(stream_);
-
             auto wss = std::make_shared<WssSession>(
                 std::move(ssl_stream), 
                 db_, s3_client_, cfg_, user_id
@@ -63,7 +84,12 @@ void HttpServerSession::on_read(beast::error_code ec, std::size_t) {
             
             wss->start(std::move(req_));
             return;
+        } catch (const std::exception& e) {
+            std::cerr << "JWT Validation Failed: " << e.what() << std::endl;
+            send_http_string_response(http::status::unauthorized, "Unauthorized");
+            return;
         } catch (...) {
+            std::cerr << "Unknown JWT Validation Error" << std::endl;
             send_http_string_response(http::status::unauthorized, "Unauthorized");
             return;
         }
