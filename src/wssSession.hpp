@@ -143,6 +143,10 @@ private:
             std::cout << "Received RewriteFileRequest from user " << user_id_ << std::endl;
             handle_rewrite_file(envelope.rewritefilerequest());
         }
+        else if (envelope.has_filepathrequest()) {
+            std::cout << "Received RewriteFileRequest from user " << user_id_ << std::endl;
+            handle_file_path(envelope.filepathrequest());
+        }
         else {
             std::cerr << "Received unknown or empty client message from user " << user_id_ << std::endl;
             send_error("Empty or unhandled packet action.");
@@ -158,6 +162,7 @@ private:
     void handle_path_inf_request(const PathInfoRequest& req);   // { boost::ignore_unused(req); }
     void send_not_exist_response_async(const std::string& input_path, const std::string& s3_endpoint, const std::string& bucket_name);
     void handle_rewrite_file(const RewriteFileRequest& req);
+    void handle_file_path(const FilePathRequest& req);    
 
     void send_error_to_socket(const std::string& context_msg, const std::string& error_msg);
 

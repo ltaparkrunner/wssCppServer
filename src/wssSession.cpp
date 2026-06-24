@@ -568,6 +568,91 @@ void WssSession::handle_files_ids_request(const FilesIds& req) {
     });
 }
 
+void WssSession::handle_file_path(const FilePathRequest& req) {
+    // Захватываем shared_ptr на текущую сессию, чтобы предотвратить её деструкцию
+    auto self = shared_from_this();
+
+    // Получаем исполнителя (thread pool / io_context) для фонового выполнения
+    auto thread_pool_executor = ws_.get_executor(); 
+
+    // Переносим тяжелую блокирующую логику (БД и AWS S3) в пул потоков Asio
+    boost::asio::post(thread_pool_executor, [this, self, req]() {
+        try {
+            std::string input_path = req.netpath();
+            std::cout << "Processing FilePathRequest for: " << input_path << std::endl;
+
+            // Структура для временного хранения элементов ответа (совпадает по логике с вашей)
+            struct FileInfoItem {
+                std::string file_name;
+                std::string mongo_id;
+                std::string url;
+                int64_t size;
+            };
+            FileInfoItem file_payload;
+            bool is_file_found = false;
+            std::string current_folder_path = "";
+
+            auto mongo_db = db_.get_db();
+            auto collection = mongo_db["ImageRecord"];
+            
+            std::string bucket_name = cfg_.s3_bucket;
+            int s3_expires = 360; // Значение по умолчанию из вашего конфига
+
+            using bsoncxx::builder::stream::document;
+            using bsoncxx::builder::stream::finalize;
+
+            // 1. Ищем конкретный файл по его полному пути в системе
+            // ПРИМЕЧАНИЕ: Имя поля в БД ("netpath") должно соответствовать вашей схеме ImageRecord
+            auto query = document{} << "netpath" << input_path << finalize;
+            auto record_opt = collection.find_one(query.view());
+
+            if (record_opt) {
+                // --- СЦЕНАРИЙ 1: Файл найден ---
+                auto record_view = record_opt->view();
+                is_file_found = true;
+
+                std::string s3_key = std::string(record_view["s3Key"].get_string().value);
+                std::string original_name = std::string(record_view["originalName"].get_string().value);
+                int64_t file_size = record_view["size"] ? record_view["size"].get_int64().value : 0;
+                std::string mongo_id = record_view["_id"].get_oid().value.to_string();
+
+                // Генерация временной ссылки S3 (Presigned URL) через ваше AWS SDK
+                Aws::Http::URI uri = s3_client_.GeneratePresignedUrl(
+                    bucket_name, 
+                    s3_key, 
+                    Aws::Http::HttpMethod::HTTP_GET, 
+                    s3_expires
+                );
+
+                file_payload = {original_name, mongo_id, uri.GetURIString(), file_size};
+                boost::asio::post(ws_.get_executor(), [this, self, file_payload]() {
+                    ServerEnvelope response;
+                    response.set_type(ServerEnvelope_Type_SERVER_MESSAGE);
+    
+                    auto* files_resp = response.mutable_filepathresponse();
+                    files_resp->set_filename(file_payload.file_name);
+                    files_resp->set_mongoid(file_payload.mongo_id);
+                    files_resp->set_url(file_payload.url);
+                    files_resp->set_size(file_payload.size);
+    
+                    this->send_envelope(response);
+                });
+            } 
+            else {
+                // --- СЦЕНАРИЙ 2: Файл НЕ найден -> Вызываем handle_user_bucket ---
+                BucketsRequest req;
+
+                req.set_userlogin(cfg_.s3_bucket);
+                handle_user_bucket(req);
+            }
+        }
+        catch (const std::exception& e) {
+            std::clog << "Exception in handle_file_path thread: " << e.what() << std::endl;
+            std::cerr << "Exception in handle_file_path thread: " << e.what() << std::endl;
+        }
+    });
+}
+
 void WssSession::handle_path_inf_request(const PathInfoRequest& req) {
     // Захватываем shared_ptr на текущую сессию, чтобы предотвратить её деструкцию
     auto self = shared_from_this();
@@ -599,12 +684,6 @@ void WssSession::handle_path_inf_request(const PathInfoRequest& req) {
             << formatted_path << std::endl;
 
             bool is_explicit_folder = !formatted_path.empty() && formatted_path.back() == '/';
-            
-            // Лямбда для экранирования спецсимволов в regex (аналог escapeRegex)
-            // auto escape_regex = [](const std::string& str) {
-            //     std::regex special_chars(R"([-\\^$*+?.()|[\]{}])");
-            //     return std::regex_replace(str, special_chars, R"(\$&)");
-            // };
 
             // Извлекаем базу данных из вашей обертки db_
             auto mongo_db = db_.get_db(); 
@@ -864,25 +943,6 @@ void WssSession::handle_rewrite_file(const RewriteFileRequest& req) {
                 send_error_to_socket("S3 Copy failed: " + copy_outcome.GetError().GetMessage(), req.fileid());
                 return;
             }
-
-            // // 5. Удаляем старый файл из S3 хранилища
-            // Aws::S3::Model::DeleteObjectRequest delete_req;
-            // delete_req.SetBucket(bucket_name);
-            // delete_req.SetKey(source_s3_key);
-            // auto delete_outcome = s3_client_.DeleteObject(delete_req);
-            // if (!delete_outcome.IsSuccess()) {
-            //     std::cerr << "Warning: Failed to delete source file: " << source_s3_key << std::endl;
-            // }
-
-            // // 6. Обновляем документ в MongoDB
-            // auto update_doc = document{} << "$set" << open_document
-            //     << "name" << current_name          // Обновляем уникальное имя (если изменилось)
-            //     << "originalName" << current_name  // Обновляем оригинальное имя (если добавился суффикс)
-            //     << "folder" << target_folder       // Новая папка
-            //     << "s3Key" << target_s3_key        // Новый ключ S3
-            // << close_document << finalize;
-
-            // records_collection.update_one(query.view(), update_doc.view());
 
             // [Вариант Б] 5. Вместо удаления создаем НОВЫЙ документ в MongoDB
             auto usr_login = record_view["userLogin"] ? std::string(record_view["userLogin"].get_string().value) : "Unknown";

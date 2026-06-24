@@ -48,7 +48,7 @@ RUN cmake -G Ninja -B build -S . \
     -DCMAKE_TOOLCHAIN_FILE=${VVCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX=/build_app/dist
-    
+
 RUN cmake --build build --config Release --target install
 
 # === ЭТАП 2: Финальный легковесный рантайм-контейнер ===

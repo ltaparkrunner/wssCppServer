@@ -8,32 +8,12 @@
 │   ├── http_session.hpp   # Обработка REST (/register, /login) через Boost.Beast
 │   └── wss_session.hpp    # Обработка Protobuf-картинок по WebSockets
 
+to login docker compose
+     sudo docker compose run --entrypoint /bin/bash wssserver
 
-
-You are about to be asked to enter information that will be incorporated
-into your certificate request.
-What you are about to enter is what is called a Distinguished Name or a DN.
-There are quite a few fields but you can leave some blank
-For some fields there will be a default value,
-If you enter '.', the field will be left blank.
------
-Country Name (2 letter code) [AU]:AM
-State or Province Name (full name) [Some-State]:Yerevan
-Locality Name (eg, city) []:Yerevan
-Organization Name (eg, company) [Internet Widgits Pty Ltd]:Alex&Co
-Organizational Unit Name (eg, section) []:
-Common Name (e.g. server FQDN or YOUR name) []:
-Email Address []:alex@forever.com
-
-the terminal command: curl -k -X POST https://localhost:8081/auth/register \
-     -H "Content-Type: application/json" \
-     -d '{"username":"alex_cpp_test","password":"secure_password123"}'
-     sent and reseved the message to server commit dc92cbcd018eadea36ed901d867a31456fa806bc.
-
-than strong changes. 
-
-why it returns such a strange answer?
-
-TODO:
-remove double back slashes before images, and force to open the net folder, or show the message.
-правильно именовать файлы на диске не c6602cb8-8bb0-41c8-8278-b60176b84aaf.jpg, а pict3.jpg
+alex-m@alex-note:~/wrk/myproj/cpp/asio/wssServer$ docker compose cp wssserver:/build_app/build/image.pb.h ./image.pb.h
+[+] Copying 1/1
+ ✔ wssserver-wssserver-1 copy wssserver-wssserver-1:/build_app/build/image.pb.h to ./image.pb.h Copied                     0.0s 
+alex-m@alex-note:~/wrk/myproj/cpp/asio/wssServer$ docker compose cp wssserver:/build_app/build/image.pb.cc ./image.pb.cc
+[+] Copying 1/1
+ ✔ wssserver-wssserver-1 copy wssserver-wssserver-1:/build_app/build/image.pb.cc to ./image.pb.cc Copied   

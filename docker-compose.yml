@@ -4,6 +4,8 @@ services:
     build: 
       context: .
       dockerfile: Dockerfile
+    #   target: builder # Указывает Docker остановить сборку ровно на этапе FROM ... AS builder
+    # command: sleep infinity # Заменяет финальный запуск на бесконечный сон
     ports:
       - "8081:8081" # REST API Авторизации
       - "8082:8080" # Защищенный WebSocket (WSS)
