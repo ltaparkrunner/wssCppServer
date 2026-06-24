@@ -128,18 +128,10 @@ void WssSession::handle_add_file(const AddFileRequest& req) {
                 );
                 if (user_doc) {
                     usr_login = std::string{user_doc->view()["login"].get_string().value};
-                    //  std::string s3_key{ doc["s3Key"].get_string().value };
-                    // usr_login = std::string{user_doc["login"].get_string().value};
-                    //  usr_login = user_doc["login"].get_string().value.to_string();
                 }
             } catch (const std::exception& e) {
                 std::cerr << "Failed to find user for login logging: " << e.what() << std::endl;
             }
-
-            std::cout << " fileName= " << file_name 
-                      << " usrLogin = " << usr_login
-                      << " folder = " << folder_name 
-                      << " info = " << info << std::endl;
 
             // 2. Формируем targetFolder аналогично Node.js
             std::string users_prefix = "USERS";
@@ -156,11 +148,60 @@ void WssSession::handle_add_file(const AddFileRequest& req) {
                 }
             }
 
-            // 3. Подготавливаем уникальное имя файла
+            // 3. ПРОВЕРКА НА УНИКАЛЬНОСТЬ ИМЕНИ ФАЙЛА В MONGODB
+            // Разделяем имя и расширение с помощью вашей структуры/логики из prepare_filename
             FilenameInfo fn_info = prepare_filename(file_name);
-            std::string s3_key = target_folder + fn_info.unique_name;
+            
+            // Сохраняем базовое имя и расширение для генерации новых вариантов
+            std::string base_name = fn_info.unique_name; // Предполагается, что это поле есть в FilenameInfo
+            std::string ext = fn_info.ext;             // Например, ".jpg" или "jpg"
+            
+            // Нормализуем точку в расширении
+            std::string ext_with_dot = ext;
+            if (!ext_with_dot.empty() && ext_with_dot[0] != '.') {
+                ext_with_dot = "." + ext_with_dot;
+            }
 
+            std::string final_original_name = file_name;
+            int counter = 1;
+
+            using bsoncxx::builder::stream::document;
+            using bsoncxx::builder::stream::finalize;
+
+            // Цикл работает до тех пор, пока в данной папке существует файл с таким originalName
+            while (true) {
+                auto duplicate_query = document{} 
+                    << "folder" << target_folder 
+                    << "originalName" << final_original_name 
+                    << finalize;
+                
+                auto exists = records_collection.find_one(duplicate_query.view());
+                if (!exists) {
+                    // Файла с таким именем в папке нет, имя свободно!
+                    break;
+                }
+
+                // Если файл найден, пересобираем имя: "имя(1).ext", "имя(2).ext"
+                final_original_name = base_name + "(" + std::to_string(counter) + ")" + ext_with_dot;
+                counter++;
+            }
+
+            // Корректируем fn_info под новое уникальное имя, если оно изменилось
+            if (counter > 1) {
+                std::cout << "Filename collision detected! Renamed to: " << final_original_name << std::endl;
+                // Перегенерируем внутреннее уникальное имя (для UUID s3Key, если ваша prepare_filename это делает)
+                // Или просто обновляем имена, в зависимости от логики вашего метода:
+                fn_info = prepare_filename(final_original_name);
+            }
+
+            std::string s3_key = target_folder + fn_info.unique_name;
             std::string bucket_name = cfg_.s3_bucket;
+
+            std::cout << " fileName= " << final_original_name 
+                      << " usrLogin = " << usr_login
+                      << " folder = " << folder_name 
+                      << " info = " << info << std::endl;
+
             std::cout << "uniqueName: " << fn_info.unique_name 
                       << " s3Key= " << s3_key 
                       << " targetFolder: " << target_folder 
@@ -171,7 +212,6 @@ void WssSession::handle_add_file(const AddFileRequest& req) {
             put_obj_req.SetBucket(bucket_name);
             put_obj_req.SetKey(s3_key);
 
-            // Оборачиваем бинарную строку в поток std::stringstream
             auto request_stream = std::make_shared<std::stringstream>(img_data);
             put_obj_req.SetBody(request_stream);
 
@@ -182,14 +222,12 @@ void WssSession::handle_add_file(const AddFileRequest& req) {
             std::cout << " s3Client.send(command) successful " << s3_key << std::endl;
 
             // 5. MongoDB: Сохраняем метаданные в ImageRecord
-            using bsoncxx::builder::stream::document;
-            using bsoncxx::builder::stream::finalize;
             using bsoncxx::builder::stream::open_document;
             using bsoncxx::builder::stream::close_document;
 
             auto meta_doc = document{}
                 << "name" << fn_info.unique_name
-                << "originalName" << file_name
+                << "originalName" << final_original_name // Сохраняем уже новое имя с (1), если был дубликат
                 << "folder" << target_folder
                 << "s3Key" << s3_key
                 << "bucket" << bucket_name
@@ -213,7 +251,7 @@ void WssSession::handle_add_file(const AddFileRequest& req) {
                 ServerEnvelope response;
                 response.set_type(ServerEnvelope_Type_SERVER_MESSAGE);
                 
-                auto* server_resp = response.mutable_serverresp(); // mutable_server_resp() зависит от .proto
+                auto* server_resp = response.mutable_serverresp(); 
                 server_resp->set_content("upload_result");
                 server_resp->set_status("success");
 
@@ -222,7 +260,6 @@ void WssSession::handle_add_file(const AddFileRequest& req) {
 
         } catch (const std::exception& e) {
             std::cerr << "Error in handle_add_file: " << e.what() << std::endl;
-            // При необходимости здесь можно отправить пакет с ошибкой ("status": "error")
         }
     });
 }
