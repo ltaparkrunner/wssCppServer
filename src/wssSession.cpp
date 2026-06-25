@@ -681,10 +681,22 @@ void WssSession::handle_file_path(const FilePathRequest& req) {
             } 
             else {
                 // --- СЦЕНАРИЙ 2: Файл НЕ найден -> Вызываем handle_user_bucket ---
-                BucketsRequest req;
-                std::cout << "The file is not found: " << std::endl;
-                req.set_userlogin(cfg_.s3_bucket);
-                handle_user_bucket(req);
+                std::string s3_endpoint = cfg_.s3_endpoint; 
+                boost::asio::post(ws_.get_executor(), [this, self, input_path, s3_endpoint, bucket_name]() {
+                    FilesFoldersListRequest list_req;
+                    list_req.set_foldername("");
+                    std::cout << ":handle_path_inf_request input_path 2 : " << input_path << std::endl;
+                    this->handle_list_request(list_req); 
+
+                    ServerEnvelope response;
+                    response.set_type(ServerEnvelope_Type_SERVER_MESSAGE);
+                    auto* path_resp = response.mutable_pathinfresponse();
+                    path_resp->set_netpath(s3_endpoint + bucket_name + "/" + input_path + "/");
+                    path_resp->set_netstorepath("");
+                    path_resp->set_result("folder");
+
+                    this->send_envelope(response);
+                });
             }
         }
         catch (const std::exception& e) {
