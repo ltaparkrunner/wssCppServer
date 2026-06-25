@@ -640,14 +640,18 @@ void WssSession::handle_file_path(const FilePathRequest& req) {
 
             // 1. Ищем конкретный файл по его полному пути в системе
             // ПРИМЕЧАНИЕ: Имя поля в БД ("netpath") должно соответствовать вашей схеме ImageRecord
-            auto query = document{} << "netpath" << input_path << finalize;
+            std::string users_prefix = "USERS";
+            std::string user_base_path = users_prefix + "/" + user_id_;
+            auto query = document{} << "s3Key" << user_base_path + "/" + input_path << finalize;
+            std::cout << "query: " << bsoncxx::to_json(query.view()) << std::endl;
             auto record_opt = collection.find_one(query.view());
 
             if (record_opt) {
                 // --- СЦЕНАРИЙ 1: Файл найден ---
+
                 auto record_view = record_opt->view();
                 is_file_found = true;
-
+                std::cout << "The file is found: " << record_view["s3Key"].get_string().value << std::endl;
                 std::string s3_key = std::string(record_view["s3Key"].get_string().value);
                 std::string original_name = std::string(record_view["originalName"].get_string().value);
                 int64_t file_size = record_view["size"] ? record_view["size"].get_int64().value : 0;
@@ -678,7 +682,7 @@ void WssSession::handle_file_path(const FilePathRequest& req) {
             else {
                 // --- СЦЕНАРИЙ 2: Файл НЕ найден -> Вызываем handle_user_bucket ---
                 BucketsRequest req;
-
+                std::cout << "The file is not found: " << std::endl;
                 req.set_userlogin(cfg_.s3_bucket);
                 handle_user_bucket(req);
             }
@@ -741,9 +745,7 @@ void WssSession::handle_path_inf_request(const PathInfoRequest& req) {
                 std::string pattern = "^" + sanitizeToPath(formatted_path);
                 auto query = document{} << "folder" << bsoncxx::types::b_regex{pattern} << finalize;
 
-                //std::cout << "query: " << query.data( );bsoncxx::to_json(view)
                 std::cout << "query: " << bsoncxx::to_json(query.view()) << std::endl;
-                //std::cout << "query: " << query.view();
                 
                 mongocxx::options::find opts{};
                 opts.projection(document{} << "_id" << 1 << finalize);
