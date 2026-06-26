@@ -403,7 +403,7 @@ void WssSession::handle_list_request(const FilesFoldersListRequest& req) {
             std::cout << "Real folders in folder count: " << folders_payload.size() << std::endl;
             std::cout << "minio_path: " << minio_path << std::endl;
             // --- 3. СБОРКА И ОТПРАВКА ОТВЕТА В ПОТОКЕ СОКЕТА ---
-            boost::asio::post(ws_.get_executor(), [this, self, files_payload, folders_payload]() {
+            boost::asio::post(ws_.get_executor(), [this, self, files_payload, folders_payload, target_folder]() {
                 ServerEnvelope response;
                 response.set_type(ServerEnvelope_Type_SERVER_MESSAGE);
                 auto* list_resp = response.mutable_listresponse();
@@ -425,7 +425,7 @@ void WssSession::handle_list_request(const FilesFoldersListRequest& req) {
                     std::cout << "folder.url: " << folder.url << std::endl;
                     f->set_url(folder.url);
                 } 
-
+                list_resp->set_foldername(target_folder);
                 std::cout << "Final response payload prepared. Sending... netPath:" /* << response.netpath() */ << std::endl;
                 this->send_envelope(response);
             });
@@ -435,12 +435,6 @@ void WssSession::handle_list_request(const FilesFoldersListRequest& req) {
         }
     });
 }
-
-// 2. Метод handle_delete_file
-// void WssSession::handle_delete_file(const DeleteFileRequest& req) {
-//     boost::ignore_unused(req);
-//     // Ваша логика здесь
-// }
 
 void WssSession::handle_delete_file(const DeleteFileRequest& req) {
     auto self = shared_from_this();
@@ -900,8 +894,8 @@ void WssSession::handle_path_inf_request(const PathInfoRequest& req) {
 
             // --- КЕЙС 4: Ничего не найдено ---
             std::cout << "send_not_exist_response_async " << std::endl;
-            send_not_exist_response_async(input_path, s3_endpoint, bucket_name);
-
+            //send_not_exist_response_async(input_path, s3_endpoint, bucket_name);
+            send_bucket_content_response_async(self, input_path, s3_endpoint, bucket_name);
         } catch (const std::exception& e) {
             std::cout << "Exception in handle_path_inf_request thread: " << e.what() << std::endl;
             std::cerr << "Exception in handle_path_inf_request thread: " << e.what() << std::endl;
@@ -1035,6 +1029,26 @@ void WssSession::handle_rewrite_file(const RewriteFileRequest& req) {
         }
     });
 }
+
+void WssSession::send_bucket_content_response_async(const std::shared_ptr<WssSession> self, const std::string& input_path, const std::string& s3_endpoint, const std::string& bucket_name) {
+//    std::string s3_endpoint = cfg_.s3_endpoint; 
+    boost::asio::post(ws_.get_executor(), [this, self, input_path, s3_endpoint, bucket_name]() {
+        FilesFoldersListRequest list_req;
+        list_req.set_foldername("");
+        std::cout << ":handle_path_inf_request input_path 2 : " << input_path << std::endl;
+        this->handle_list_request(list_req); 
+
+        ServerEnvelope response;
+        response.set_type(ServerEnvelope_Type_SERVER_MESSAGE);
+        auto* path_resp = response.mutable_pathinfresponse();
+        path_resp->set_netpath(s3_endpoint + bucket_name);
+        path_resp->set_netstorepath("");
+        path_resp->set_result("folder");
+
+        this->send_envelope(response);
+    });
+}
+
 
 // Хелпер тоже выносим в handlers.cpp
 void WssSession::send_not_exist_response_async(const std::string& input_path, const std::string& s3_endpoint, const std::string& bucket_name) {

@@ -91,8 +91,11 @@ message FolderInfo {
 
 // Ответ сервера со списками файлов и папок
 message FilesFoldersListResponse {
-  repeated FileInfo files = 1;
-  repeated FolderInfo folders = 2;
+  string folderName = 1;
+  repeated FileInfo files = 2;
+  repeated FolderInfo folders = 3;
+//  repeated FileInfo files = 1;
+//  repeated FolderInfo folders = 2;
 }
 
 // Ответ сервера только со списком файлов
