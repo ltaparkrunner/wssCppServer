@@ -403,7 +403,8 @@ void WssSession::handle_list_request(const FilesFoldersListRequest& req) {
             std::cout << "Real folders in folder count: " << folders_payload.size() << std::endl;
             std::cout << "minio_path: " << minio_path << std::endl;
             // --- 3. СБОРКА И ОТПРАВКА ОТВЕТА В ПОТОКЕ СОКЕТА ---
-            boost::asio::post(ws_.get_executor(), [this, self, files_payload, folders_payload, target_folder]() {
+            std::string full_folder = s3_endpoint + "/" + cfg_.s3_bucket + "/" + target_folder;
+            boost::asio::post(ws_.get_executor(), [this, self, files_payload, folders_payload, full_folder]() {
                 ServerEnvelope response;
                 response.set_type(ServerEnvelope_Type_SERVER_MESSAGE);
                 auto* list_resp = response.mutable_listresponse();
@@ -425,7 +426,7 @@ void WssSession::handle_list_request(const FilesFoldersListRequest& req) {
                     std::cout << "folder.url: " << folder.url << std::endl;
                     f->set_url(folder.url);
                 } 
-                list_resp->set_foldername(target_folder);
+                list_resp->set_foldername(full_folder);
                 std::cout << "Final response payload prepared. Sending... netPath:" /* << response.netpath() */ << std::endl;
                 this->send_envelope(response);
             });
