@@ -686,7 +686,7 @@ void WssSession::handle_file_path(const FilePathRequest& req) {
                     ServerEnvelope response;
                     response.set_type(ServerEnvelope_Type_SERVER_MESSAGE);
                     auto* path_resp = response.mutable_pathinfresponse();
-                    path_resp->set_netpath(s3_endpoint + bucket_name + "/" + input_path + "/");
+                    path_resp->set_netpath(s3_endpoint + bucket_name + "/");
                     std::cout << "s3_endpoint: " << s3_endpoint << "  bucket_name: " << bucket_name 
                     << "  input_path: " << input_path << std::endl;
                     path_resp->set_netstorepath("");
@@ -917,12 +917,14 @@ void WssSession::handle_rewrite_file(const RewriteFileRequest& req) {
             auto mongo_db = db_.get_db();
             auto records_collection = mongo_db["ImageRecord"];
 
+            std::cout << "handle_rewrite_file target_folder_name: " << target_folder_name << 
+            "  file_path: " << req.fileid() << "  file_id: " << req.fileid() << std::endl;
             bsoncxx::oid file_oid(req.fileid());
             using bsoncxx::builder::stream::document;
             using bsoncxx::builder::stream::finalize;
             using bsoncxx::builder::stream::open_document;
             using bsoncxx::builder::stream::close_document;
-
+            
             // 1. Ищем исходный файл по его ID
             auto query = document{} << "_id" << file_oid << finalize;
             auto record_opt = records_collection.find_one(query.view());
@@ -951,6 +953,8 @@ void WssSession::handle_rewrite_file(const RewriteFileRequest& req) {
                     target_folder = user_base_path + "/" + target_folder_name + "/";
                 }
             }
+            std::cout << "handle_rewrite_file target_folder: " << target_folder << 
+                "  file_path: " << req.fileid() << std::endl;
 
             // 3. Защита от коллизий (проверяем существование файла в целевой папке)
             size_t dot_idx = original_name.find_last_of(".");
@@ -1016,6 +1020,8 @@ void WssSession::handle_rewrite_file(const RewriteFileRequest& req) {
                 std::cout << "Copied file record successfully. New ID: " << new_mongo_id << std::endl;
             }
 
+            std::cout << "handle_rewrite_file target_folder: " << target_folder << 
+                "  original_name: " << original_name << std::endl; 
             // 7. Ответ в I/O поток сокета
             boost::asio::post(ws_.get_executor(), [this, self]() {
                 ServerEnvelope response;
