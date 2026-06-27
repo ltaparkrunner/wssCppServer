@@ -403,7 +403,7 @@ void WssSession::handle_list_request(const FilesFoldersListRequest& req) {
             std::cout << "Real folders in folder count: " << folders_payload.size() << std::endl;
             std::cout << "minio_path: " << minio_path << std::endl;
             // --- 3. СБОРКА И ОТПРАВКА ОТВЕТА В ПОТОКЕ СОКЕТА ---
-            std::string full_folder = s3_endpoint + "/" + cfg_.s3_bucket + "/" + target_folder;
+            std::string full_folder = s3_endpoint + cfg_.s3_bucket + "/" + target_folder;
             boost::asio::post(ws_.get_executor(), [this, self, files_payload, folders_payload, full_folder]() {
                 ServerEnvelope response;
                 response.set_type(ServerEnvelope_Type_SERVER_MESSAGE);
@@ -687,6 +687,8 @@ void WssSession::handle_file_path(const FilePathRequest& req) {
                     response.set_type(ServerEnvelope_Type_SERVER_MESSAGE);
                     auto* path_resp = response.mutable_pathinfresponse();
                     path_resp->set_netpath(s3_endpoint + bucket_name + "/" + input_path + "/");
+                    std::cout << "s3_endpoint: " << s3_endpoint << "  bucket_name: " << bucket_name 
+                    << "  input_path: " << input_path << std::endl;
                     path_resp->set_netstorepath("");
                     path_resp->set_result("folder");
 
