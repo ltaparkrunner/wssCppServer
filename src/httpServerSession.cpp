@@ -38,7 +38,7 @@ void HttpServerSession::on_read(beast::error_code ec, std::size_t) {
     }
 
     // Логируем только РЕАЛЬНО скачанный HTTP запрос
-    std::cout << "Received HTTP request: " << req_.method_string() << " " << req_.target() << std::endl;
+    //  std::cout << "Received HTTP request: " << req_.method_string() << " " << req_.target() << std::endl;
 
     // Обработка WebSocket апгрейда (только на основном порту 8080)
     if (!is_auth_server_ && websocket::is_upgrade(req_)) {
@@ -68,12 +68,12 @@ void HttpServerSession::on_read(beast::error_code ec, std::size_t) {
             nlohmann::json header_obj  = decoded.get_header_json();
             nlohmann::json payload_obj = decoded.get_payload_json();
 
-            std::cout << "=== Beautiful Header ===\n"  << header_obj.dump(4)  << "\n\n";
-            std::cout << "=== Beautiful Payload ===\n" << payload_obj.dump(4) << "\n";
-            std::cout << "token: " << token << std::endl;
+            // std::cout << "=== Beautiful Header ===\n"  << header_obj.dump(4)  << "\n\n";
+            // std::cout << "=== Beautiful Payload ===\n" << payload_obj.dump(4) << "\n";
+            // std::cout << "token: " << token << std::endl;
             
             std::string user_id = decoded.get_payload_claim("id").as_string();
-            std::cout << "user_id: " << user_id << std::endl;
+            // std::cout << "user_id: " << user_id << std::endl;
 
             // Передача в WebSocket сессию...
             auto& ssl_stream = std::get<beast::ssl_stream<tcp::socket>>(stream_);
@@ -122,7 +122,7 @@ void HttpServerSession::handle_rest_api() {
     }
 
     if (req_.method() == http::verb::post && req_.target() == "/auth/register") {
-        std::cout << "Received registration request: username=" << username << std::endl;
+        //  std::cout << "Received registration request: username=" << username << std::endl;
         
         if (username.empty() || password.empty()) {
             send_json_response(http::status::bad_request, json{{"error", "Missing fields"}});
@@ -163,7 +163,7 @@ void HttpServerSession::handle_rest_api() {
                 auto head_bucket_outcome = s3_client_.HeadBucket(head_bucket_req);
     
                 if (!head_bucket_outcome.IsSuccess()) {
-                    std::cout << "Bucket " << bucket_name << " does not exist. Creating..." << std::endl;
+                    //  std::cout << "Bucket " << bucket_name << " does not exist. Creating..." << std::endl;
                     
                     // ИСПРАВЛЕНО: Теперь инклуд подключен, ошибка incomplete type исчезнет
                     Aws::S3::Model::CreateBucketRequest create_bucket_req;
@@ -188,7 +188,7 @@ void HttpServerSession::handle_rest_api() {
                 }
                 
                 std::string uid = user_res->inserted_id().get_oid().value.to_string();
-                std::cout << "Before placeholder initialization for user id: " << uid << std::endl;
+                //  std::cout << "Before placeholder initialization for user id: " << uid << std::endl;
     
                 std::string placeholder_path = users_prefix + "/" + uid + "/.placeholder";
                 
@@ -249,7 +249,7 @@ void HttpServerSession::handle_rest_api() {
         return;
     }
     else if (req_.method() == http::verb::post && req_.target() == "/auth/login") {
-        std::cout << "Received login request: username=" << username << std::endl;
+        // std::cout << "Received login request: username=" << username << std::endl;
         
         // 1. Быстрая проверка на пустые поля до ухода в пул потоков
         if (username.empty() || password.empty()) {
@@ -285,7 +285,7 @@ void HttpServerSession::handle_rest_api() {
                     return;
                 }
     
-                std::cout << "User found: " << username << std::endl;
+                //  std::cout << "User found: " << username << std::endl;
                 auto view = user_doc->view();
                 std::string stored_hash{ view["password"].get_string().value };
                 std::string uid = view["_id"].get_oid().value.to_string();
@@ -304,7 +304,7 @@ void HttpServerSession::handle_rest_api() {
                     return;
                 }
     
-                std::cout << "Correct password: " << username << std::endl;
+                //  std::cout << "Correct password: " << username << std::endl;
     
                 // 4. JWT: Генерация токена доступа
                 std::string token = AuthUtils::generate_token(uid, cfg_.jwt_secret);

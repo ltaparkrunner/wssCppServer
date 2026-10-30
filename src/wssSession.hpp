@@ -116,35 +116,35 @@ private:
             return;
         }
         if(envelope.has_requserbuckets()) {
-            std::cout << "Received UserBucketsRequest from user " << user_id_ << std::endl;
+            // std::cout << "Received UserBucketsRequest from user " << user_id_ << std::endl;
             handle_user_bucket(envelope.requserbuckets());            
         } 
         if (envelope.has_addfile()) {
-            std::cout << "Received AddFileRequest from user " << user_id_ << std::endl;
+            // std::cout << "Received AddFileRequest from user " << user_id_ << std::endl;
             handle_add_file(envelope.addfile());
         } 
         else if (envelope.has_listrequest()) {
-            std::cout << "Received FilesFoldersListRequest from user " << user_id_ << std::endl;
+            // std::coutstd::coutstd::cout << "Received FilesFoldersListRequest from user " << user_id_ << std::endl;
             handle_list_request(envelope.listrequest());
         } 
         else if (envelope.has_deletefile()) {
-            std::cout << "Received DeleteFileRequest from user " << user_id_ << std::endl;
+            // std::cout << "Received DeleteFileRequest from user " << user_id_ << std::endl;
             handle_delete_file(envelope.deletefile());
         } 
         else if (envelope.has_filesidsrequest()) {
-            std::cout << "Received FilesIdsRequest from user " << user_id_ << std::endl;
+            // std::cout << "Received FilesIdsRequest from user " << user_id_ << std::endl;
             handle_files_ids_request(envelope.filesidsrequest());
         } 
         else if (envelope.has_pathinfrequest()) {
-            std::cout << "Received PathInfoRequest from user " << user_id_ << std::endl;
+            // std::cout << "Received PathInfoRequest from user " << user_id_ << std::endl;
             handle_path_inf_request(envelope.pathinfrequest());
         }
         else if (envelope.has_rewritefilerequest()) {
-            std::cout << "Received RewriteFileRequest from user " << user_id_ << std::endl;
+            // std::cout << "Received RewriteFileRequest from user " << user_id_ << std::endl;
             handle_rewrite_file(envelope.rewritefilerequest());
         }
         else if (envelope.has_filepathrequest()) {
-            std::cout << "Received RewriteFileRequest from user " << user_id_ << std::endl;
+            // std::cout << "Received RewriteFileRequest from user " << user_id_ << std::endl;
             handle_file_path(envelope.filepathrequest());
         }
         else {

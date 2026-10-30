@@ -7,7 +7,7 @@
 #include <bsoncxx/builder/stream/document.hpp>
 
 void WssSession::handle_user_bucket(const BucketsRequest& req) {
-    std::cout << "handle_user_bucket" << std::endl;
+    //  std::cout << "handle_user_bucket" << std::endl;
     auto self = shared_from_this();
     auto thread_pool_executor = ws_.get_executor();
 
@@ -21,11 +21,11 @@ void WssSession::handle_user_bucket(const BucketsRequest& req) {
             head_bucket_req.SetBucket(bucket_name);
 
             auto head_bucket_outcome = s3_client_.HeadBucket(head_bucket_req);
-            std::cout << "boost::asio::post(thread_pool_executor, [this, self, req]() bucket_name: " << bucket_name 
-            << "head_bucket_outcome.IsSuccess(): " << head_bucket_outcome.IsSuccess() << std::endl;
+            //  std::cout << "boost::asio::post(thread_pool_executor, [this, self, req]() bucket_name: " << bucket_name 
+            // << "head_bucket_outcome.IsSuccess(): " << head_bucket_outcome.IsSuccess() << std::endl;
             if (head_bucket_outcome.IsSuccess()) {
                 // Бакет существует: формируем успешный ответ аналогично Node.js
-                std::cout << "bucketInfo: " << bucket_name << std::endl;
+                //  std::cout << "bucketInfo: " << bucket_name << std::endl;
 
                 // Получаем endpoint из конфигурации s3_client (в AWS SDK C++ это клиентская конфигурация)
                 // Если у вас кастомный эндпоинт (например, MinIO), подставьте его из cfg_ или s3_client_
@@ -43,7 +43,7 @@ void WssSession::handle_user_bucket(const BucketsRequest& req) {
                     auto* bucket_info = buckets_msg->add_bucketinf(); // Предполагается, что это repeated поле
                     bucket_info->set_bucketname(bucket_name);
                     bucket_info->set_url(s3_url);
-                    std::cout << "bucket_name: " << bucket_name << "  s3_url: " << s3_url << std::endl;
+                    //  std::cout << "bucket_name: " << bucket_name << "  s3_url: " << s3_url << std::endl;
                     this->send_envelope(response);
                 });
 
@@ -63,7 +63,7 @@ void WssSession::handle_user_bucket(const BucketsRequest& req) {
                         // Передаем ошибку в поле status (в Protobuf это строка или структура)
                         server_resp->set_status(aws_error.GetMessage()); 
 
-                        std::cout << "Response for non-existing path (404): " << aws_error.GetMessage() << std::endl;
+                        //  std::cout << "Response for non-existing path (404): " << aws_error.GetMessage() << std::endl;
                         this->send_envelope(response);
                     });
                 } else {
@@ -76,7 +76,7 @@ void WssSession::handle_user_bucket(const BucketsRequest& req) {
                         server_resp->set_content("Access denied or other error: " + aws_error.GetMessage());
                         server_resp->set_status(aws_error.GetMessage());
 
-                        std::cout << "Response for non-existing path (Error): " << aws_error.GetMessage() << std::endl;
+                        //  std::cout << "Response for non-existing path (Error): " << aws_error.GetMessage() << std::endl;
                         this->send_envelope(response);
                     });
                 }
@@ -113,7 +113,7 @@ void WssSession::handle_add_file(const AddFileRequest& req) {
             std::string img_data = req.data(); 
             std::size_t img_data_length = img_data.length();
 
-            std::cout << "Buffer size: " << img_data_length << std::endl;
+            //  std::cout << "Buffer size: " << img_data_length << std::endl;
 
             auto mongo_db = db_.get_db();
             auto users_collection = mongo_db["users"];
@@ -188,7 +188,7 @@ void WssSession::handle_add_file(const AddFileRequest& req) {
 
             // Корректируем fn_info под новое уникальное имя, если оно изменилось
             if (counter > 1) {
-                std::cout << "Filename collision detected! Renamed to: " << final_original_name << std::endl;
+                //  std::cout << "Filename collision detected! Renamed to: " << final_original_name << std::endl;
                 // Перегенерируем внутреннее уникальное имя (для UUID s3Key, если ваша prepare_filename это делает)
                 // Или просто обновляем имена, в зависимости от логики вашего метода:
                 fn_info = prepare_filename(final_original_name);
@@ -197,15 +197,15 @@ void WssSession::handle_add_file(const AddFileRequest& req) {
             std::string s3_key = target_folder + fn_info.unique_name;
             std::string bucket_name = cfg_.s3_bucket;
 
-            std::cout << " fileName= " << final_original_name 
-                      << " usrLogin = " << usr_login
-                      << " folder = " << folder_name 
-                      << " info = " << info << std::endl;
+            // std::cout << " fileName= " << final_original_name 
+            //           << " usrLogin = " << usr_login
+            //           << " folder = " << folder_name 
+            //           << " info = " << info << std::endl;
 
-            std::cout << "uniqueName: " << fn_info.unique_name 
-                      << " s3Key= " << s3_key 
-                      << " targetFolder: " << target_folder 
-                      << " ext: " << fn_info.ext << std::endl;
+            // std::cout << "uniqueName: " << fn_info.unique_name 
+            //           << " s3Key= " << s3_key 
+            //           << " targetFolder: " << target_folder 
+            //           << " ext: " << fn_info.ext << std::endl;
 
             // 4. AWS S3: Загружаем файл через PutObjectRequest
             Aws::S3::Model::PutObjectRequest put_obj_req;
@@ -219,7 +219,7 @@ void WssSession::handle_add_file(const AddFileRequest& req) {
             if (!put_obj_outcome.IsSuccess()) {
                 throw std::runtime_error("Failed to upload file to S3: " + put_obj_outcome.GetError().GetMessage());
             }
-            std::cout << " s3Client.send(command) successful " << s3_key << std::endl;
+            // std::cout << " s3Client.send(command) successful " << s3_key << std::endl;
 
             // 5. MongoDB: Сохраняем метаданные в ImageRecord
             using bsoncxx::builder::stream::open_document;
@@ -241,9 +241,9 @@ void WssSession::handle_add_file(const AddFileRequest& req) {
             auto insert_res = records_collection.insert_one(meta_doc.view());
             if (insert_res) {
                 std::string mongo_id = insert_res->inserted_id().get_oid().value.to_string();
-                std::cout << "Saved image " << fn_info.unique_name 
-                          << " for user " << usr_login 
-                          << " with ID: " << mongo_id << std::endl;
+                // std::cout << "Saved image " << fn_info.unique_name 
+                //           << " for user " << usr_login 
+                //           << " with ID: " << mongo_id << std::endl;
             }
 
             // 6. Возвращаем отправку успешного ответа в основной I/O поток сокета
@@ -273,7 +273,7 @@ void WssSession::handle_list_request(const FilesFoldersListRequest& req) {
         try {
             // В зависимости от вашего .proto имя сеттера/геттера может быть foldername() или folder_name()
             std::string folder_name = req.foldername();
-            std::cout << "function handleListRequest folderName: " << folder_name << std::endl;
+            //  std::cout << "function handleListRequest folderName: " << folder_name << std::endl;
 
             if (!folder_name.empty() && folder_name.back() == '/') {
                 folder_name.pop_back();
@@ -298,7 +298,7 @@ void WssSession::handle_list_request(const FilesFoldersListRequest& req) {
 
             std::string bucket_name = cfg_.s3_bucket;
             std::string s3_endpoint = cfg_.s3_endpoint;
-            std::cout << "targetFolder: " << target_folder << "  BUCKET: " << bucket_name << std::endl;
+            //  std::cout << "targetFolder: " << target_folder << "  BUCKET: " << bucket_name << std::endl;
 
             auto mongo_db = db_.get_db();
             auto collection = mongo_db["ImageRecord"];
@@ -345,7 +345,7 @@ void WssSession::handle_list_request(const FilesFoldersListRequest& req) {
 
                 files_payload.push_back({original_name, mongo_id, uri.GetURIString(), file_size});
             }
-            std::cout << "Real files in folder count: " << files_payload.size() << std::endl;
+            //  std::cout << "Real files in folder count: " << files_payload.size() << std::endl;
 
             // --- 2. НАХОДИМ ВИРТУАЛЬНЫЕ ПОДПАПКИ (ImageRecord.aggregate) ---
             mongocxx::pipeline pipeline;
@@ -400,8 +400,8 @@ void WssSession::handle_list_request(const FilesFoldersListRequest& req) {
 
                 folders_payload.push_back({folder_nm, folder_url});
             }
-            std::cout << "Real folders in folder count: " << folders_payload.size() << std::endl;
-            std::cout << "minio_path: " << minio_path << std::endl;
+            // std::cout << "Real folders in folder count: " << folders_payload.size() << std::endl;
+            // std::cout << "minio_path: " << minio_path << std::endl;
             // --- 3. СБОРКА И ОТПРАВКА ОТВЕТА В ПОТОКЕ СОКЕТА ---
             std::string full_folder = s3_endpoint + cfg_.s3_bucket + "/" + target_folder;
             boost::asio::post(ws_.get_executor(), [this, self, files_payload, folders_payload, full_folder]() {
@@ -414,7 +414,7 @@ void WssSession::handle_list_request(const FilesFoldersListRequest& req) {
                     auto* f = list_resp->add_files();
                     f->set_filename(file.file_name);
                     f->set_mongoid(file.mongo_id);
-                    std::cout << "file.url: " << file.url << std::endl;
+                    //  std::cout << "file.url: " << file.url << std::endl;
                     f->set_url(file.url);
                     f->set_size(file.size);
                 }
@@ -423,11 +423,11 @@ void WssSession::handle_list_request(const FilesFoldersListRequest& req) {
                 for (const auto& folder : folders_payload) {
                     auto* f = list_resp->add_folders();
                     f->set_foldername(folder.folder_name);
-                    std::cout << "folder.url: " << folder.url << std::endl;
+                    //  std::cout << "folder.url: " << folder.url << std::endl;
                     f->set_url(folder.url);
                 } 
                 list_resp->set_foldername(full_folder);
-                std::cout << "Final response payload prepared. Sending... netPath:" /* << response.netpath() */ << std::endl;
+                //  std::cout << "Final response payload prepared. Sending... netPath:" /* << response.netpath() */ << std::endl;
                 this->send_envelope(response);
             });
 
@@ -448,8 +448,8 @@ void WssSession::handle_delete_file(const DeleteFileRequest& req) {
             std::string mongo_id_str = req.mongoid(); 
             std::string file_name = req.filename(); // Передается для логирования (fname в JS)
 
-            std::cout << "deleteFile: fname = " << file_name 
-                      << " mongoId = " << mongo_id_str << std::endl;
+            // std::cout << "deleteFile: fname = " << file_name 
+            //           << " mongoId = " << mongo_id_str << std::endl;
 
             auto mongo_db = db_.get_db();
             auto collection = mongo_db["ImageRecord"];
@@ -484,11 +484,11 @@ void WssSession::handle_delete_file(const DeleteFileRequest& req) {
             if (!delete_obj_outcome.IsSuccess()) {
                 throw std::runtime_error("Не удалось удалить файл из S3: " + delete_obj_outcome.GetError().GetMessage());
             }
-            std::cout << "Файл " << s3_key << " удален из MinIO" << std::endl;
+            // std::cout << "Файл " << s3_key << " удален из MinIO" << std::endl;
 
             // 3. MongoDB: Удаление метаданных из коллекции
             collection.delete_one(query.view());
-            std::cout << "Запись " << mongo_id_str << " удалена из MongoDB" << std::endl;
+            // std::cout << "Запись " << mongo_id_str << " удалена из MongoDB" << std::endl;
 
             // 4. Возвращаем отправку успешного ответа в основной I/O поток сокета
             boost::asio::post(ws_.get_executor(), [this, self, file_name, bucket_name]() {
@@ -500,7 +500,7 @@ void WssSession::handle_delete_file(const DeleteFileRequest& req) {
                 server_resp->set_status("success");
 
                 this->send_envelope(response);
-                std::cout << "Delete document off " << file_name << " from " << bucket_name << std::endl;
+                // std::cout << "Delete document off " << file_name << " from " << bucket_name << std::endl;
             });
 
         } catch (const std::exception& e) {
@@ -536,7 +536,7 @@ void WssSession::handle_files_ids_request(const FilesIds& req) {
             // ПРИМЕЧАНИЕ: Имя геттера (например, mongoids()) зависит от вашего .proto файла
             for (int i = 0; i < req.mongoids_size(); ++i) {
                 std::string id_str = req.mongoids(i);
-                std::cout << "Processing ID: " << id_str << std::endl;
+                // std::cout << "Processing ID: " << id_str << std::endl;
 
                 try {
                     bsoncxx::oid mongo_oid(id_str);
@@ -565,7 +565,7 @@ void WssSession::handle_files_ids_request(const FilesIds& req) {
 
                         files_payload.push_back({original_name, mongo_id, uri.GetURIString(), file_size});
                     } else {
-                        std::cout << "Record with ID " << id_str << " not found in MongoDB" << std::endl;
+                        // std::cout << "Record with ID " << id_str << " not found in MongoDB" << std::endl;
                         files_payload.push_back({"", id_str, "", 0});
                     }
                 } catch (const std::exception& e) {
@@ -611,7 +611,7 @@ void WssSession::handle_file_path(const FilePathRequest& req) {
     boost::asio::post(thread_pool_executor, [this, self, req]() {
         try {
             std::string input_path = req.netpath();
-            std::cout << "Processing FilePathRequest for: " << input_path << std::endl;
+            // std::cout << "Processing FilePathRequest for: " << input_path << std::endl;
 
             // Структура для временного хранения элементов ответа (совпадает по логике с вашей)
             struct FileInfoItem {
@@ -638,7 +638,7 @@ void WssSession::handle_file_path(const FilePathRequest& req) {
             std::string users_prefix = "USERS";
             std::string user_base_path = users_prefix + "/" + user_id_;
             auto query = document{} << "s3Key" << user_base_path + "/" + input_path << finalize;
-            std::cout << "query: " << bsoncxx::to_json(query.view()) << std::endl;
+            // std::cout << "query: " << bsoncxx::to_json(query.view()) << std::endl;
             auto record_opt = collection.find_one(query.view());
 
             if (record_opt) {
@@ -646,7 +646,7 @@ void WssSession::handle_file_path(const FilePathRequest& req) {
 
                 auto record_view = record_opt->view();
                 is_file_found = true;
-                std::cout << "The file is found: " << record_view["s3Key"].get_string().value << std::endl;
+                // std::cout << "The file is found: " << record_view["s3Key"].get_string().value << std::endl;
                 std::string s3_key = std::string(record_view["s3Key"].get_string().value);
                 std::string original_name = std::string(record_view["originalName"].get_string().value);
                 int64_t file_size = record_view["size"] ? record_view["size"].get_int64().value : 0;
@@ -680,15 +680,15 @@ void WssSession::handle_file_path(const FilePathRequest& req) {
                 boost::asio::post(ws_.get_executor(), [this, self, input_path, s3_endpoint, bucket_name]() {
                     FilesFoldersListRequest list_req;
                     list_req.set_foldername("");
-                    std::cout << ":handle_path_inf_request input_path 2 : " << input_path << std::endl;
+                    // std::cout << ":handle_path_inf_request input_path 2 : " << input_path << std::endl;
                     this->handle_list_request(list_req); 
 
                     ServerEnvelope response;
                     response.set_type(ServerEnvelope_Type_SERVER_MESSAGE);
                     auto* path_resp = response.mutable_pathinfresponse();
                     path_resp->set_netpath(s3_endpoint + bucket_name + "/");
-                    std::cout << "s3_endpoint: " << s3_endpoint << "  bucket_name: " << bucket_name 
-                    << "  input_path: " << input_path << std::endl;
+                    // std::cout << "s3_endpoint: " << s3_endpoint << "  bucket_name: " << bucket_name 
+                    // << "  input_path: " << input_path << std::endl;
                     path_resp->set_netstorepath("");
                     path_resp->set_result("folder");
 
@@ -718,8 +718,8 @@ void WssSession::handle_path_inf_request(const PathInfoRequest& req) {
             std::string prefix = users_prefix + "/" + user_id_;
             std::string formatted_path = input_path;
 
-            std::cout << "input_path: " << input_path << "  prefix: " << prefix << "  formatted_path: " 
-            << formatted_path << std::endl;
+            // std::cout << "input_path: " << input_path << "  prefix: " << prefix << "  formatted_path: " 
+            // << formatted_path << std::endl;
 
             // 1. Обеспечиваем наличие префикса в пути
             if (formatted_path.rfind(prefix, 0) != 0) { 
@@ -730,8 +730,8 @@ void WssSession::handle_path_inf_request(const PathInfoRequest& req) {
                 }
             }
 
-            std::cout << "input_path: " << input_path << "  prefix: " << prefix << "  formatted_path: " 
-            << formatted_path << std::endl;
+            // std::cout << "input_path: " << input_path << "  prefix: " << prefix << "  formatted_path: " 
+            // << formatted_path << std::endl;
 
             bool is_explicit_folder = !formatted_path.empty() && formatted_path.back() == '/';
 
@@ -744,17 +744,17 @@ void WssSession::handle_path_inf_request(const PathInfoRequest& req) {
             std::string bucket_name = cfg_.s3_bucket;
             int s3_expires = 360; // Значение по умолчанию (в Config этого поля нет)
 
-            std::cout << "is3_endpoint : " << s3_endpoint << "  bucket_name: " << bucket_name << std::endl;
+            // std::cout << "is3_endpoint : " << s3_endpoint << "  bucket_name: " << bucket_name << std::endl;
             // --- КЕЙС 1: Путь заканчивается на "/" ---
             if (is_explicit_folder) {
-                std::cout << " is_explicit_folder " << std::endl;
+                // std::cout << " is_explicit_folder " << std::endl;
                 using bsoncxx::builder::stream::document;
                 using bsoncxx::builder::stream::finalize;
 
                 std::string pattern = "^" + sanitizeToPath(formatted_path);
                 auto query = document{} << "folder" << bsoncxx::types::b_regex{pattern} << finalize;
 
-                std::cout << "query: " << bsoncxx::to_json(query.view()) << std::endl;
+                // std::cout << "query: " << bsoncxx::to_json(query.view()) << std::endl;
                 
                 mongocxx::options::find opts{};
                 opts.projection(document{} << "_id" << 1 << finalize);
@@ -762,19 +762,19 @@ void WssSession::handle_path_inf_request(const PathInfoRequest& req) {
                 auto doc = collection.find_one(query.view(), opts);
 
                 if (doc) {
-                    std::cout << " if (doc) " << std::endl;
+                    // std::cout << " if (doc) " << std::endl;
                     // Возвращаем вызовы в поток сокета (I/O thread) для безопасной отправки
                     boost::asio::post(ws_.get_executor(), [this, self, input_path, s3_endpoint, bucket_name]() {
                         FilesFoldersListRequest list_req;
                         list_req.set_foldername(input_path);
-                        std::cout << ":handle_path_inf_request input_path 1 : " << input_path << std::endl;
+                        // std::cout << ":handle_path_inf_request input_path 1 : " << input_path << std::endl;
                         this->handle_list_request(list_req); 
 
                         ServerEnvelope response;
                         response.set_type(ServerEnvelope_Type_SERVER_MESSAGE);
                         auto* path_resp = response.mutable_pathinfresponse();
                         path_resp->set_netpath(s3_endpoint + bucket_name + "/" + input_path);
-                        std::cout << "mutable_pathinfresponse set_netpath: " << s3_endpoint + bucket_name + "/" + input_path << std::endl;
+                        // std::cout << "mutable_pathinfresponse set_netpath: " << s3_endpoint + bucket_name + "/" + input_path << std::endl;
                         path_resp->set_netstorepath("");
                         path_resp->set_result("folder");
 
@@ -782,7 +782,7 @@ void WssSession::handle_path_inf_request(const PathInfoRequest& req) {
                     });
                     return;
                 } else {
-                    std::cout << " if (doc) else " << std::endl;
+                    // std::cout << " if (doc) else " << std::endl;
                     send_not_exist_response_async(input_path, s3_endpoint, bucket_name);
                     return;
                 }
@@ -791,7 +791,7 @@ void WssSession::handle_path_inf_request(const PathInfoRequest& req) {
             // --- КЕЙС 2: Проверка папки без явного слэша ---
             std::string folder_with_slash = formatted_path + "/";
             {
-                std::cout << "КЕЙС 2: Проверка папки без явного слэша is_explicit_folder " << std::endl;
+                // std::cout << "КЕЙС 2: Проверка папки без явного слэша is_explicit_folder " << std::endl;
                 using bsoncxx::builder::stream::document;
                 using bsoncxx::builder::stream::finalize;
 
@@ -804,11 +804,11 @@ void WssSession::handle_path_inf_request(const PathInfoRequest& req) {
                 auto folder_doc = collection.find_one(folder_query.view(), opts);
 
                 if (folder_doc) {
-                    std::cout << "folder_doc " << std::endl;
+                    // std::cout << "folder_doc " << std::endl;
                     boost::asio::post(ws_.get_executor(), [this, self, input_path, s3_endpoint, bucket_name]() {
                         FilesFoldersListRequest list_req;
                         list_req.set_foldername(input_path);
-                        std::cout << ":handle_path_inf_request input_path 2 : " << input_path << std::endl;
+                        // std::cout << ":handle_path_inf_request input_path 2 : " << input_path << std::endl;
                         this->handle_list_request(list_req); 
 
                         ServerEnvelope response;
@@ -826,7 +826,7 @@ void WssSession::handle_path_inf_request(const PathInfoRequest& req) {
 
             // --- КЕЙС 3: Поиск файла по s3Key или комбинации (folder + originalName) ---
             {
-                std::cout << "КЕЙС 3: Поиск файла по s3Key или комбинации (folder + originalName) " << std::endl;
+                // std::cout << "КЕЙС 3: Поиск файла по s3Key или комбинации (folder + originalName) " << std::endl;
                 using bsoncxx::builder::stream::document;
                 using bsoncxx::builder::stream::open_array;
                 using bsoncxx::builder::stream::close_array;
@@ -859,7 +859,7 @@ void WssSession::handle_path_inf_request(const PathInfoRequest& req) {
                 auto file_doc = collection.find_one(file_query.view(), opts);
 
                 if (file_doc) {
-                    std::cout << "file_doc " << std::endl;
+                    // std::cout << "file_doc " << std::endl;
                     auto view = file_doc->view();
                     // std::string s3_key = view["s3Key"].get_string().value.to_string();
                     // std::string original_name = view["originalName"].get_string().value.to_string();
@@ -888,7 +888,7 @@ void WssSession::handle_path_inf_request(const PathInfoRequest& req) {
                         file_info->set_mongoid(mongo_id);
                         file_info->set_url(signed_url);
                         file_info->set_size(file_size);
-                        std::cout << ":handle_path_inf_request signed_url 3 : " << signed_url << std::endl;
+                        // std::cout << ":handle_path_inf_request signed_url 3 : " << signed_url << std::endl;
                         this->send_envelope(response);
                     });
                     return;
@@ -896,11 +896,11 @@ void WssSession::handle_path_inf_request(const PathInfoRequest& req) {
             }
 
             // --- КЕЙС 4: Ничего не найдено ---
-            std::cout << "send_not_exist_response_async " << std::endl;
+            // std::cout << "send_not_exist_response_async " << std::endl;
             //send_not_exist_response_async(input_path, s3_endpoint, bucket_name);
             send_bucket_content_response_async(self, input_path, s3_endpoint, bucket_name);
         } catch (const std::exception& e) {
-            std::cout << "Exception in handle_path_inf_request thread: " << e.what() << std::endl;
+            // std::cout << "Exception in handle_path_inf_request thread: " << e.what() << std::endl;
             std::cerr << "Exception in handle_path_inf_request thread: " << e.what() << std::endl;
         }
     });
@@ -917,8 +917,8 @@ void WssSession::handle_rewrite_file(const RewriteFileRequest& req) {
             auto mongo_db = db_.get_db();
             auto records_collection = mongo_db["ImageRecord"];
 
-            std::cout << "handle_rewrite_file target_folder_name: " << target_folder_name << 
-            "  file_path: " << req.fileid() << "  file_id: " << req.fileid() << std::endl;
+            // std::cout << "handle_rewrite_file target_folder_name: " << target_folder_name << 
+            // "  file_path: " << req.fileid() << "  file_id: " << req.fileid() << std::endl;
             bsoncxx::oid file_oid(req.fileid());
             using bsoncxx::builder::stream::document;
             using bsoncxx::builder::stream::finalize;
@@ -953,8 +953,8 @@ void WssSession::handle_rewrite_file(const RewriteFileRequest& req) {
                     target_folder = user_base_path + "/" + target_folder_name + "/";
                 }
             }
-            std::cout << "handle_rewrite_file target_folder: " << target_folder << 
-                "  file_path: " << req.fileid() << std::endl;
+            // std::cout << "handle_rewrite_file target_folder: " << target_folder << 
+            //    "  file_path: " << req.fileid() << std::endl;
 
             // 3. Защита от коллизий (проверяем существование файла в целевой папке)
             size_t dot_idx = original_name.find_last_of(".");
@@ -1017,11 +1017,11 @@ void WssSession::handle_rewrite_file(const RewriteFileRequest& req) {
             auto insert_res = records_collection.insert_one(meta_doc.view());
             if (insert_res) {
                 std::string new_mongo_id = insert_res->inserted_id().get_oid().value.to_string();
-                std::cout << "Copied file record successfully. New ID: " << new_mongo_id << std::endl;
+                // std::cout << "Copied file record successfully. New ID: " << new_mongo_id << std::endl;
             }
 
-            std::cout << "handle_rewrite_file target_folder: " << target_folder << 
-                "  original_name: " << original_name << std::endl; 
+            // std::cout << "handle_rewrite_file target_folder: " << target_folder << 
+            //    "  original_name: " << original_name << std::endl; 
             // 7. Ответ в I/O поток сокета
             boost::asio::post(ws_.get_executor(), [this, self]() {
                 ServerEnvelope response;
@@ -1044,7 +1044,7 @@ void WssSession::send_bucket_content_response_async(const std::shared_ptr<WssSes
     boost::asio::post(ws_.get_executor(), [this, self, input_path, s3_endpoint, bucket_name]() {
         FilesFoldersListRequest list_req;
         list_req.set_foldername("");
-        std::cout << ":handle_path_inf_request input_path 2 : " << input_path << std::endl;
+        // std::cout << ":handle_path_inf_request input_path 2 : " << input_path << std::endl;
         this->handle_list_request(list_req); 
 
         ServerEnvelope response;
@@ -1067,7 +1067,7 @@ void WssSession::send_not_exist_response_async(const std::string& input_path, co
         response.set_type(ServerEnvelope_Type_SERVER_MESSAGE);
         auto* path_resp = response.mutable_pathinfresponse();
         path_resp->set_netpath(s3_endpoint + bucket_name + "/" + input_path + "/");
-        std::cout << "end_not_exist_response_async set_netpath: " << s3_endpoint + bucket_name + "/" + input_path + "/" << std::endl;
+        // std::cout << "end_not_exist_response_async set_netpath: " << s3_endpoint + bucket_name + "/" + input_path + "/" << std::endl;
         path_resp->set_netstorepath("");
         path_resp->set_result("not exist");
 

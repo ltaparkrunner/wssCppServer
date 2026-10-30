@@ -85,7 +85,7 @@ int main() {
     // А. Настраиваем эндпоинт (например, http://localhost:9000/)
     Aws::Client::ClientConfiguration client_config;
     client_config.endpointOverride = cfg.s3_endpoint; 
-    std::cout << "client_config.endpointOverride" << client_config.endpointOverride << std::endl;
+    //  std::cout << "client_config.endpointOverride" << client_config.endpointOverride << std::endl;
     // client_config.enableVirtualAddressing = false; 
 
     // Б. Передаем ключи доступа из config.hpp
@@ -118,7 +118,7 @@ int main() {
     for (int i = 0; i < threads_count - 1; ++i) {
         threads.emplace_back([&ioc]() { ioc.run(); });
     }
-    std::cout << "C++ Servers started. WSS on 8080, Auth REST on 8081." << std::endl;
+    //  std::cout << "C++ Servers started. WSS on 8080, Auth REST on 8081." << std::endl;
     ioc.run();
 
     Aws::ShutdownAPI(options);
